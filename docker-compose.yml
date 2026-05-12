@@ -1,0 +1,120 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: agentespacio_redis
+    command: redis-server --save 60 10 --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - agentespacio_redis_data:/data
+    networks:
+      - agentespacio_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  db:
+    image: postgres:15-alpine
+    container_name: agentespacio_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agentespacio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentespacio}
+      POSTGRES_DB: ${POSTGRES_DB:-agentespacio_db}
+    volumes:
+      - agentespacio_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - agentespacio_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agentespacio} -d ${POSTGRES_DB:-agentespacio_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test_db:
+    image: postgres:15-alpine
+    container_name: agentespacio_postgres_test
+    restart: always
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: test_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - agentespacio_postgres_test_data:/var/lib/postgresql/data
+    networks:
+      - agentespacio_network
+
+  api:
+    build: .
+    container_name: agentespacio_api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-agentespacio}:${POSTGRES_PASSWORD:-agentespacio}@db:5432/${POSTGRES_DB:-agentespacio_db}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PYTHONPATH=/app
+      - POSTGRES_USER=${POSTGRES_USER:-agentespacio}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-agentespacio}
+      - POSTGRES_DB=${POSTGRES_DB:-agentespacio_db}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - API_HOST=${API_HOST:-0.0.0.0}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+    networks:
+      - agentespacio_network
+    command: ["./start.sh"]
+
+  celery_workers:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    container_name: agentespacio_celery
+    command: watchmedo auto-restart --directory=/app/celery_app --pattern="*.py" --recursive -- celery -A celery_app.celery_app worker --loglevel=info -c 4
+    volumes:
+      - .:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-agentespacio}:${POSTGRES_PASSWORD:-agentespacio}@db:5432/${POSTGRES_DB:-agentespacio_db}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PYTHONPATH=/app
+      - POSTGRES_USER=${POSTGRES_USER:-agentespacio}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-agentespacio}
+      - POSTGRES_DB=${POSTGRES_DB:-agentespacio_db}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+    networks:
+      - agentespacio_network
+
+volumes:
+  agentespacio_postgres_data:
+  agentespacio_postgres_test_data:
+  agentespacio_redis_data:
+
+networks:
+  agentespacio_network:
+    driver: bridge
