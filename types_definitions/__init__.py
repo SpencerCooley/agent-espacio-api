@@ -37,6 +37,24 @@ from types_definitions.common import (
     PaginationParams,
 )
 
+from types_definitions.folder import (
+    CreateFolderRequest,
+    UpdateFolderRequest,
+    FolderResponse,
+    FolderTreeItem,
+    FolderListResponse,
+    FolderContentsResponse,
+    DeleteFolderResponse,
+)
+
+from types_definitions.asset import (
+    AssetResponse,
+    AssetListResponse,
+    DeleteAssetResponse,
+    CreateAssetAsDescendantRequest,
+    AssetUploadResponse,
+)
+
 __all__ = [
     # Auth
     "UserCredentials",
@@ -63,4 +81,18 @@ __all__ = [
     "ErrorResponse",
     "SuccessResponse",
     "PaginationParams",
+    # Folder
+    "CreateFolderRequest",
+    "UpdateFolderRequest",
+    "FolderResponse",
+    "FolderTreeItem",
+    "FolderListResponse",
+    "FolderContentsResponse",
+    "DeleteFolderResponse",
+    # Asset
+    "AssetResponse",
+    "AssetListResponse",
+    "DeleteAssetResponse",
+    "CreateAssetAsDescendantRequest",
+    "AssetUploadResponse",
 ]

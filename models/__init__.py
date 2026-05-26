@@ -6,6 +6,8 @@ Contains all database models:
 - Token: Bearer tokens for user sessions
 - APIKey: API keys for AI agent authentication
 - ResetToken: Password reset tokens
+- Folder: Hierarchical folder structure for organizing assets
+- Asset: File metadata and storage references
 - RoleEnum: User role enumeration
 """
 
@@ -15,6 +17,8 @@ from models.user import User
 from models.token import Token
 from models.api_key import APIKey
 from models.reset_token import ResetToken
+from models.folder import Folder
+from models.asset import Asset
 
 __all__ = [
     "Base",
@@ -23,4 +27,6 @@ __all__ = [
     "Token",
     "APIKey",
     "ResetToken",
+    "Folder",
+    "Asset",
 ]

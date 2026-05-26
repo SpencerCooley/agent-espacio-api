@@ -31,6 +31,8 @@ class User(Base):
     # Relationships - cascade delete when user is deleted
     tokens = relationship("Token", back_populates="user", cascade="all, delete-orphan")
     reset_tokens = relationship("ResetToken", back_populates="user", cascade="all, delete-orphan")
+    folders = relationship("Folder", back_populates="created_by", cascade="all, delete-orphan")
+    assets = relationship("Asset", back_populates="created_by", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, role={self.role})>"
