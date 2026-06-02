@@ -2,18 +2,23 @@
 Routers package.
 
 Contains all API endpoint routers:
+- ai_instructions: Unauthenticated AI agent onboarding
+- health: Health check endpoints
 - auth: Authentication endpoints
 - users: User management endpoints
 - api_keys: API key management endpoints
 - folders: Folder management endpoints
 - assets: Asset (file) management endpoints
+- artifacts: Artifact (non-file) management endpoints
 """
 
+from . import ai_instructions
 from . import health
 from . import auth
 from . import users
 from . import api_keys
 from . import folders
 from . import assets
+from . import artifacts
 
-__all__ = ["health", "auth", "users", "api_keys", "folders", "assets"]
+__all__ = ["ai_instructions", "health", "auth", "users", "api_keys", "folders", "assets", "artifacts"]

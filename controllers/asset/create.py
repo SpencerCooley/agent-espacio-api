@@ -1,8 +1,9 @@
 """
 Asset controller - create asset.
 """
+import os
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
@@ -13,7 +14,6 @@ from services.file_storage import (
     get_mime_type,
     generate_storage_filename,
     save_uploaded_file,
-    get_file_size,
     validate_file_size,
 )
 
@@ -52,36 +52,36 @@ def create_asset(
             raise ValueError("Parent folder not found")
     
     # Get file size and validate
-    file_size = get_file_size(temp_file_path)
-    if file_size is None:
-        raise IOError("Could not read uploaded file")
-    
+    try:
+        file_size = os.path.getsize(temp_file_path)
+    except OSError as e:
+        raise IOError(f"Could not read uploaded file: {e}")
+
     is_valid, error = validate_file_size(file_size)
     if not is_valid:
         raise ValueError(error)
-    
-    # Create asset record first (to get the ID)
+
+    # Generate ID and storage filename before creating the record
     mime_type = get_mime_type(name)
-    
+    asset_id = uuid4()
+    storage_filename = generate_storage_filename(asset_id, name)
+
     asset = Asset(
+        id=asset_id,
         name=name,
+        storage_filename=storage_filename,
         mime_type=mime_type,
         size_bytes=file_size,
         folder_id=folder_id,
         descendant_of=descendant_of,
-        created_by_id=created_by.id
+        created_by_id=created_by.id if created_by else None,
     )
-    
+
     db.add(asset)
-    db.flush()  # Get the ID without committing
-    
-    # Generate storage filename with asset ID
-    asset.storage_filename = generate_storage_filename(asset.id, name)
-    
-    # Move file from temp to assets directory
-    save_uploaded_file(temp_file_path, asset.storage_filename)
-    
     db.commit()
     db.refresh(asset)
-    
+
+    # Move file from temp to assets directory
+    save_uploaded_file(temp_file_path, asset.storage_filename)
+
     return asset

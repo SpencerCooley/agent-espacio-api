@@ -276,3 +276,50 @@ def allow_agent_api_key(
         APIKey: Valid API key object
     """
     return api_key
+
+
+def require_auth(
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+    x_agent_key: Optional[str] = Header(None, alias="X-Agent-Key"),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """
+    Unified authentication - accepts either Bearer token or X-Agent-Key.
+    
+    Args:
+        token: Optional Bearer token from Authorization header
+        x_agent_key: Optional API key from X-Agent-Key header
+        db: Database session
+        
+    Returns:
+        Optional[User]: Authenticated user if using Bearer token, None if using API key
+        
+    Raises:
+        HTTPException: 401 if neither auth method is valid
+    """
+    # Try Bearer token first
+    if token:
+        db_token = db.query(Token).filter(Token.token == token).first()
+        
+        if db_token and db_token.is_active:
+            if not db_token.expires_at or db_token.expires_at >= datetime.utcnow():
+                return db_token.user
+    
+    # Try API key
+    if x_agent_key:
+        key_hash = hash_api_key(x_agent_key)
+        api_key = db.query(APIKey).filter(
+            APIKey.key_hash == key_hash,
+            APIKey.is_active == True
+        ).first()
+        
+        if api_key:
+            # API key is valid but has no associated user
+            return None
+    
+    # Neither auth method succeeded
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid authentication",
+        headers={"WWW-Authenticate": "Bearer, X-Agent-Key"}
+    )

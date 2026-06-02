@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import health, auth, users, api_keys, folders, assets
+from routers import ai_instructions, health, auth, users, api_keys, folders, assets, artifacts
 
 app = FastAPI(
     title="Agent Espacio API",
@@ -20,12 +20,14 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(ai_instructions.router)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(api_keys.router)
 app.include_router(folders.router)
 app.include_router(assets.router)
+app.include_router(artifacts.router)
 
 @app.get("/")
 async def root():

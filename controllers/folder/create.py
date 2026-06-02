@@ -13,7 +13,7 @@ from models.user import User
 def create_folder(
     db: Session,
     name: str,
-    created_by: User,
+    created_by: Optional[User] = None,
     parent_id: Optional[UUID] = None
 ) -> Optional[Folder]:
     """
@@ -43,7 +43,7 @@ def create_folder(
         name=name,
         parent_id=parent_id,
         is_root=False,  # Only system creates root folder
-        created_by_id=created_by.id
+        created_by_id=created_by.id if created_by else None
     )
     
     # Build the materialized path

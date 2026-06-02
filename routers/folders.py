@@ -9,11 +9,12 @@ Endpoints for folder management (hierarchical file storage):
 - PUT /folders/{folder_id} - Update folder (rename/move)
 - DELETE /folders/{folder_id} - Delete folder and all contents
 """
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
-from dependencies.dependencies import get_db, require_user
+from dependencies.dependencies import get_db, require_auth
 from models.user import User
 from types_definitions.folder import (
     CreateFolderRequest,
@@ -23,7 +24,7 @@ from types_definitions.folder import (
     FolderContentsResponse,
     DeleteFolderResponse,
 )
-from types_definitions.asset import AssetResponse
+from types_definitions.artifact import FolderItemResponse
 import controllers
 
 router = APIRouter(
@@ -35,7 +36,7 @@ router = APIRouter(
 
 @router.get("", response_model=FolderListResponse)
 async def list_folders(
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -84,7 +85,7 @@ async def list_folders(
 @router.post("", response_model=FolderResponse, status_code=status.HTTP_201_CREATED)
 async def create_folder(
     request: CreateFolderRequest,
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -112,7 +113,7 @@ async def create_folder(
 @router.get("/{folder_id}", response_model=FolderResponse)
 async def get_folder(
     folder_id: UUID,
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -132,33 +133,74 @@ async def get_folder(
 @router.get("/{folder_id}/contents", response_model=FolderContentsResponse)
 async def get_folder_contents(
     folder_id: UUID,
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
-    Get folder contents including subfolders and assets.
-    
-    Returns both immediate subfolders and assets in the folder.
+    Get folder contents including subfolders, assets, and artifacts.
+
+    Returns a unified list of all items in the folder, ordered alphabetically by name.
+    The 'kind' field indicates whether each item is a folder, asset, or artifact.
     """
     folder = controllers.folder.get_folder(db, folder_id)
-    
+
     if not folder:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Folder not found"
         )
-    
-    subfolders, assets = controllers.folder.get_folder_contents(db, folder_id)
-    
-    # Convert assets to response format
-    asset_responses = [AssetResponse.from_orm(a) for a in assets]
-    
+
+    subfolders, assets, artifacts = controllers.folder.get_folder_contents(db, folder_id)
+
+    # Build unified items list
+    items = []
+
+    for f in subfolders:
+        items.append(FolderItemResponse(
+            kind="folder",
+            id=f.id,
+            name=f.name,
+            type=None,
+            mime_type=None,
+            size_bytes=None,
+            is_image=None,
+            created_at=f.created_at,
+            updated_at=f.updated_at,
+        ))
+
+    for a in assets:
+        items.append(FolderItemResponse(
+            kind="asset",
+            id=a.id,
+            name=a.name,
+            type=None,
+            mime_type=a.mime_type,
+            size_bytes=a.size_bytes,
+            is_image=a.is_image,
+            created_at=a.created_at,
+            updated_at=a.updated_at,
+        ))
+
+    for ar in artifacts:
+        items.append(FolderItemResponse(
+            kind="artifact",
+            id=ar.id,
+            name=ar.name,
+            type=ar.type,
+            mime_type=None,
+            size_bytes=None,
+            is_image=None,
+            created_at=ar.created_at,
+            updated_at=ar.updated_at,
+        ))
+
+    # Sort alphabetically by name across all types
+    items.sort(key=lambda x: x.name.lower())
+
     return FolderContentsResponse(
         folder=folder,
-        subfolders=subfolders,
-        assets=asset_responses,
-        total_subfolders=len(subfolders),
-        total_assets=len(assets)
+        items=items,
+        total_items=len(items)
     )
 
 
@@ -166,7 +208,7 @@ async def get_folder_contents(
 async def update_folder(
     folder_id: UUID,
     request: UpdateFolderRequest,
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -201,7 +243,7 @@ async def update_folder(
 @router.delete("/{folder_id}", response_model=DeleteFolderResponse)
 async def delete_folder(
     folder_id: UUID,
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """

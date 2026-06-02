@@ -79,7 +79,7 @@ services:
       - "8000:8000"
     volumes:
       - ./:/app
-      - agentespacio_storage:/app/storage
+      - ./storage:/app/storage
     networks:
       - agentespacio_network
     command: ["./start.sh"]
@@ -92,7 +92,7 @@ services:
     command: watchmedo auto-restart --directory=/app/celery_app --pattern="*.py" --recursive -- celery -A celery_app.celery_app worker --loglevel=info -c 4
     volumes:
       - .:/app
-      - agentespacio_storage:/app/storage
+      - ./storage:/app/storage
     depends_on:
       redis:
         condition: service_healthy
@@ -118,7 +118,6 @@ volumes:
   agentespacio_postgres_data:
   agentespacio_postgres_test_data:
   agentespacio_redis_data:
-  agentespacio_storage:
 
 networks:
   agentespacio_network:

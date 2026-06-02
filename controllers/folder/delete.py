@@ -20,6 +20,7 @@ def delete_folder(
     This includes:
     - All subfolders (recursively)
     - All assets in the folder and subfolders
+    - All artifacts in the folder and subfolders
     - All asset files from disk storage
     
     Args:
@@ -50,7 +51,7 @@ def _delete_folder_recursive(
     folder: Folder
 ) -> Tuple[int, int]:
     """
-    Recursively delete a folder's contents (subfolders and assets).
+    Recursively delete a folder's contents (subfolders, assets, and artifacts).
     
     Returns counts of deleted items (not including the folder itself).
     """
@@ -75,5 +76,9 @@ def _delete_folder_recursive(
         # Delete from database
         db.delete(asset)
         assets_count += 1
+    
+    # Delete all artifacts in this folder (explicitly, for safety)
+    for artifact in list(folder.artifacts):
+        db.delete(artifact)
     
     return subfolders_count, assets_count

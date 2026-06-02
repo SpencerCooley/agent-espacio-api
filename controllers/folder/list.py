@@ -89,16 +89,16 @@ def count_folders_in_parent(db: Session, parent_id: Optional[UUID] = None) -> in
 def get_folder_contents(
     db: Session,
     folder_id: UUID
-) -> tuple[List[Folder], int]:
+) -> tuple[List[Folder], List, List]:
     """
-    Get immediate subfolders and assets in a folder.
+    Get immediate subfolders, assets, and artifacts in a folder.
     
     Args:
         db: Database session
         folder_id: Folder ID to get contents for
         
     Returns:
-        Tuple of (subfolders list, assets list)
+        Tuple of (subfolders list, assets list, artifacts list)
     """
     subfolders = db.query(Folder).filter(Folder.parent_id == folder_id).order_by(Folder.name).all()
     
@@ -106,4 +106,7 @@ def get_folder_contents(
     from models.asset import Asset
     assets = db.query(Asset).filter(Asset.folder_id == folder_id).order_by(Asset.name).all()
     
-    return subfolders, assets
+    from models.artifact import Artifact
+    artifacts = db.query(Artifact).filter(Artifact.folder_id == folder_id).order_by(Artifact.name).all()
+    
+    return subfolders, assets, artifacts

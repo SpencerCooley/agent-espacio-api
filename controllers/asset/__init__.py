@@ -10,6 +10,7 @@ from controllers.asset.list import (
     get_image_assets,
     get_descendants,
 )
+from controllers.asset.update import update_asset
 from controllers.asset.delete import delete_asset, delete_assets_by_folder
 
 __all__ = [
@@ -23,6 +24,8 @@ __all__ = [
     "count_assets_in_folder",
     "get_image_assets",
     "get_descendants",
+    # Update
+    "update_asset",
     # Delete
     "delete_asset",
     "delete_assets_by_folder",

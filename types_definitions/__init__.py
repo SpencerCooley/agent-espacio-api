@@ -55,6 +55,17 @@ from types_definitions.asset import (
     AssetUploadResponse,
 )
 
+from types_definitions.artifact import (
+    CreateArtifactRequest,
+    UpdateArtifactRequest,
+    ArtifactResponse,
+    ArtifactListResponse,
+    DeleteArtifactResponse,
+    ArtifactTypeResponse,
+    ArtifactTypeListResponse,
+    FolderItemResponse,
+)
+
 __all__ = [
     # Auth
     "UserCredentials",
@@ -95,4 +106,13 @@ __all__ = [
     "DeleteAssetResponse",
     "CreateAssetAsDescendantRequest",
     "AssetUploadResponse",
+    # Artifact
+    "CreateArtifactRequest",
+    "UpdateArtifactRequest",
+    "ArtifactResponse",
+    "ArtifactListResponse",
+    "DeleteArtifactResponse",
+    "ArtifactTypeResponse",
+    "ArtifactTypeListResponse",
+    "FolderItemResponse",
 ]

@@ -5,21 +5,24 @@ Endpoints for asset (file) management:
 - GET /assets - List assets with optional filters
 - POST /assets/upload - Upload a file
 - GET /assets/{asset_id} - Get asset metadata
+- PUT /assets/{asset_id} - Update asset (rename or move)
 - GET /assets/{asset_id}/download - Download the file
 - DELETE /assets/{asset_id} - Delete asset
 """
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from uuid import UUID
 
-from dependencies.dependencies import get_db, require_user
+from dependencies.dependencies import get_db, require_auth
 from models.user import User
 from types_definitions.asset import (
     AssetResponse,
     AssetListResponse,
     DeleteAssetResponse,
     AssetUploadResponse,
+    UpdateAssetRequest,
 )
 from services.file_storage import (
     get_temp_path,
@@ -42,7 +45,7 @@ router = APIRouter(
 async def list_assets(
     folder_id: UUID = None,
     mime_type: str = None,
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -64,7 +67,7 @@ async def list_assets(
 async def upload_asset(
     file: UploadFile = File(..., description="File to upload"),
     folder_id: UUID = Form(None, description="Parent folder ID (optional)"),
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -130,7 +133,7 @@ async def upload_asset(
 @router.get("/{asset_id}", response_model=AssetResponse)
 async def get_asset(
     asset_id: UUID,
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -150,7 +153,7 @@ async def get_asset(
 @router.get("/{asset_id}/download")
 async def download_asset(
     asset_id: UUID,
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -182,10 +185,46 @@ async def download_asset(
         )
 
 
+@router.put("/{asset_id}", response_model=AssetResponse)
+async def update_asset(
+    asset_id: UUID,
+    request: UpdateAssetRequest,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Update an asset (rename or move to a different folder).
+    
+    - **name**: New filename (optional)
+    - **folder_id**: New parent folder ID (optional, for moving)
+    """
+    asset = controllers.asset.get_asset(db, asset_id)
+    
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Asset not found"
+        )
+    
+    try:
+        updated = controllers.asset.update_asset(
+            db=db,
+            asset=asset,
+            name=request.name,
+            folder_id=request.folder_id,
+        )
+        return updated
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
 @router.delete("/{asset_id}", response_model=DeleteAssetResponse)
 async def delete_asset(
     asset_id: UUID,
-    current_user: User = Depends(require_user),
+    current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """

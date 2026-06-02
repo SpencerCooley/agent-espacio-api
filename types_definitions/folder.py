@@ -34,7 +34,7 @@ class FolderResponse(BaseModel):
     depth: int = Field(..., description="Depth in folder tree (0 = root)")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
-    created_by_id: int = Field(..., description="ID of user who created the folder")
+    created_by_id: int | None = Field(None, description="ID of user who created the folder")
     
     class Config:
         from_attributes = True
@@ -60,13 +60,13 @@ class FolderListResponse(BaseModel):
     total: int = Field(..., description="Total number of folders")
 
 
+from types_definitions.artifact import FolderItemResponse
+
 class FolderContentsResponse(BaseModel):
-    """Response for folder contents (subfolders + assets)."""
+    """Response for folder contents (unified list of items)."""
     folder: FolderResponse = Field(..., description="Current folder info")
-    subfolders: List[FolderResponse] = Field(..., description="Subfolders in this folder")
-    assets: List[AssetResponse] = Field(..., description="Assets in this folder")
-    total_subfolders: int = Field(..., description="Total number of subfolders")
-    total_assets: int = Field(..., description="Total number of assets")
+    items: List[FolderItemResponse] = Field(..., description="Unified list of folders, assets, and artifacts")
+    total_items: int = Field(..., description="Total number of items")
 
 
 class DeleteFolderResponse(BaseModel):

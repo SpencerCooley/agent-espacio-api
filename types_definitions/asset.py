@@ -25,7 +25,7 @@ class AssetResponse(BaseModel):
     descendant_of: Optional[UUID] = Field(..., description="Parent asset ID if this is a transformation")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
-    created_by_id: int = Field(..., description="ID of user who uploaded the asset")
+    created_by_id: int | None = Field(None, description="ID of user who uploaded the asset")
     
     class Config:
         from_attributes = True
@@ -49,6 +49,12 @@ class CreateAssetAsDescendantRequest(BaseModel):
     parent_asset_id: UUID = Field(..., description="ID of the parent asset")
     folder_id: Optional[UUID] = Field(None, description="Target folder (defaults to parent's folder)")
     name: Optional[str] = Field(None, description="New filename (defaults to parent's name with suffix)")
+
+
+class UpdateAssetRequest(BaseModel):
+    """Request to update an asset."""
+    name: Optional[str] = Field(None, description="New filename")
+    folder_id: Optional[UUID] = Field(None, description="New parent folder ID")
 
 
 class AssetUploadResponse(BaseModel):

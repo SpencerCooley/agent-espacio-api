@@ -1,0 +1,66 @@
+"""
+Artifact controller - update artifact.
+"""
+from typing import Optional
+from uuid import UUID
+
+from sqlalchemy.orm import Session
+
+from models.artifact import Artifact
+from models.folder import Folder
+
+
+def update_artifact(
+    db: Session,
+    artifact: Artifact,
+    name: Optional[str] = None,
+    type: Optional[str] = None,
+    description: Optional[str] = None,
+    content: Optional[dict] = None,
+    folder_id: Optional[UUID] = None,
+) -> Artifact:
+    """
+    Update an artifact's fields.
+
+    Args:
+        db: Database session
+        artifact: Artifact object to update
+        name: New display name
+        type: New artifact type key
+        description: New description
+        content: New content JSONB
+        folder_id: New parent folder ID (for moving)
+
+    Returns:
+        Updated artifact object
+
+    Raises:
+        ValueError: If new folder not found
+    """
+    # Update name if provided
+    if name is not None:
+        artifact.name = name
+
+    # Update type if provided
+    if type is not None:
+        artifact.type = type
+
+    # Update description if provided
+    if description is not None:
+        artifact.description = description
+
+    # Update content if provided
+    if content is not None:
+        artifact.content = content
+
+    # Move to new folder if provided
+    if folder_id is not None and folder_id != artifact.folder_id:
+        folder = db.query(Folder).filter(Folder.id == folder_id).first()
+        if not folder:
+            raise ValueError("Target folder not found")
+        artifact.folder_id = folder_id
+
+    db.commit()
+    db.refresh(artifact)
+
+    return artifact

@@ -19,6 +19,7 @@ from models.api_key import APIKey
 from models.reset_token import ResetToken
 from models.folder import Folder
 from models.asset import Asset
+from models.artifact import Artifact
 
 __all__ = [
     "Base",
@@ -29,4 +30,5 @@ __all__ = [
     "ResetToken",
     "Folder",
     "Asset",
+    "Artifact",
 ]

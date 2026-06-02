@@ -39,7 +39,7 @@ class Asset(Base):
     descendant_of = Column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     
     # Relationships
     folder = relationship("Folder", back_populates="assets")

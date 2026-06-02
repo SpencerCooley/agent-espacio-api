@@ -33,14 +33,13 @@ class Folder(Base):
     is_root = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     
     # Relationships
     parent = relationship(
         "Folder",
         back_populates="children",
-        remote_side=[id],
-        cascade="all"
+        remote_side=[id]
     )
     children = relationship(
         "Folder",
@@ -50,6 +49,12 @@ class Folder(Base):
     )
     assets = relationship(
         "Asset",
+        back_populates="folder",
+        cascade="all, delete-orphan",
+        lazy="dynamic"
+    )
+    artifacts = relationship(
+        "Artifact",
         back_populates="folder",
         cascade="all, delete-orphan",
         lazy="dynamic"

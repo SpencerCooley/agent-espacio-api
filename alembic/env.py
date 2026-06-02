@@ -23,6 +23,10 @@ from models.user import User  # noqa: F401 - import to register with Base.metada
 from models.token import Token  # noqa: F401 - import to register with Base.metadata
 from models.api_key import APIKey  # noqa: F401 - import to register with Base.metadata
 from models.reset_token import ResetToken  # noqa: F401 - import to register with Base.metadata
+from models.asset import Asset 
+from models.folder import Folder 
+from models.artifact import Artifact
+
 
 # this is the Alembic Config object
 config = context.config
