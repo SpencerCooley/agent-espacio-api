@@ -28,6 +28,10 @@ from services.file_storage import (
     get_temp_path,
     save_uploaded_file,
     read_file,
+    read_file_from_path,
+    get_thumbnail_path,
+    thumbnail_exists,
+    THUMBNAIL_SIZES,
     MAX_FILE_SIZE,
 )
 import controllers
@@ -153,11 +157,15 @@ async def get_asset(
 @router.get("/{asset_id}/download")
 async def download_asset(
     asset_id: UUID,
+    size: int = None,
     current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
     Download the file for an asset.
+    
+    - **size**: Optional thumbnail size (e.g., 256, 512). Only available for image assets.
+      Falls back to original if the requested thumbnail size wasn't generated.
     
     Returns the file with appropriate content type headers.
     """
@@ -169,13 +177,43 @@ async def download_asset(
             detail="Asset not found"
         )
     
+    # Thumbnail download
+    if size is not None:
+        if size not in THUMBNAIL_SIZES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid thumbnail size. Supported sizes: {THUMBNAIL_SIZES}"
+            )
+        if not asset.is_image:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Thumbnails are only available for image assets"
+            )
+        if not thumbnail_exists(asset_id, size):
+            # Fall back to original if thumbnail wasn't generated (e.g., image was smaller than size)
+            pass
+        else:
+            try:
+                return StreamingResponse(
+                    read_file_from_path(get_thumbnail_path(asset_id, size)),
+                    media_type="image/webp",
+                    headers={
+                        "Content-Disposition": f'inline; filename="{asset_id}_thumb_{size}.webp"'
+                    }
+                )
+            except FileNotFoundError:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Thumbnail file not found on disk"
+                )
+    
     try:
-        # Stream the file
+        # Stream the original file
         return StreamingResponse(
             read_file(asset.storage_filename),
             media_type=asset.mime_type,
             headers={
-                "Content-Disposition": f'attachment; filename="{asset.name}"'
+                "Content-Disposition": f'inline; filename="{asset.name}"'
             }
         )
     except FileNotFoundError:

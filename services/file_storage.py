@@ -191,7 +191,7 @@ def file_exists(storage_filename: str) -> bool:
 
 def read_file(storage_filename: str, chunk_size: int = 8192):
     """
-    Generator to read a file in chunks.
+    Generator to read a file in chunks by storage filename.
     
     Useful for streaming file downloads without loading entire file into memory.
     
@@ -209,6 +209,28 @@ def read_file(storage_filename: str, chunk_size: int = 8192):
     
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {storage_filename}")
+    
+    with open(file_path, "rb") as f:
+        while chunk := f.read(chunk_size):
+            yield chunk
+
+
+def read_file_from_path(file_path: str, chunk_size: int = 8192):
+    """
+    Generator to read a file in chunks from an absolute path.
+    
+    Args:
+        file_path: Absolute path to the file
+        chunk_size: Size of chunks to yield (default 8KB)
+    
+    Yields:
+        File chunks as bytes
+    
+    Raises:
+        FileNotFoundError: If file doesn't exist
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
     
     with open(file_path, "rb") as f:
         while chunk := f.read(chunk_size):
@@ -254,3 +276,91 @@ def validate_file_size(size_bytes: int) -> Tuple[bool, Optional[str]]:
         return False, f"File size {actual_mb:.1f}MB exceeds maximum allowed size of {max_mb:.0f}MB"
     
     return True, None
+
+
+THUMBNAIL_SIZES = [256, 512]
+"""Standard thumbnail sizes (max dimension in pixels). Generated on upload for images."""
+
+
+def generate_thumbnails(asset_id: UUID, source_path: str) -> tuple[dict, dict]:
+    """
+    Generate thumbnails for an image asset.
+    
+    Args:
+        asset_id: The asset UUID (used for naming thumbnails)
+        source_path: Path to the original image file
+        
+    Returns:
+        Tuple of (thumbnail_meta, image_info):
+        - thumbnail_meta: dict mapping size -> {w, h, size_bytes}
+        - image_info: dict with {width, height, has_alpha}
+    
+    Only generates thumbnails if the original image is larger than the target size
+    (never upscales). Skips thumbnails for non-image files silently.
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        return {}, {}
+
+    thumbnails = {}
+    image_info = {}
+
+    try:
+        with Image.open(source_path) as img:
+            orig_w, orig_h = img.size
+            has_alpha = img.mode in ("RGBA", "LA", "PA") or "transparency" in img.info
+            image_info = {"width": orig_w, "height": orig_h, "has_alpha": has_alpha}
+
+            for size in THUMBNAIL_SIZES:
+                if orig_w <= size and orig_h <= size:
+                    continue
+
+                thumb = img.copy()
+                thumb.thumbnail((size, size), Image.LANCZOS)
+
+                thumb_filename = f"{asset_id}_thumb_{size}.webp"
+                thumb_path = os.path.join(ASSETS_DIR, thumb_filename)
+
+                save_kwargs = {"quality": 85, "method": 6}
+                if has_alpha:
+                    thumb.save(thumb_path, "WEBP", **save_kwargs, lossless=False)
+                else:
+                    thumb.save(thumb_path, "WEBP", **save_kwargs)
+
+                thumb_size = os.path.getsize(thumb_path)
+                thumbnails[str(size)] = {
+                    "w": thumb.width,
+                    "h": thumb.height,
+                    "size_bytes": thumb_size,
+                }
+
+                thumb.close()
+
+            return thumbnails, image_info
+
+    except Exception:
+        return {}, {}
+
+
+def delete_thumbnails(asset_id: UUID):
+    """Delete all thumbnail files for a given asset ID."""
+    for size in THUMBNAIL_SIZES:
+        thumb_filename = f"{asset_id}_thumb_{size}.webp"
+        thumb_path = os.path.join(ASSETS_DIR, thumb_filename)
+        try:
+            if os.path.exists(thumb_path):
+                os.remove(thumb_path)
+        except OSError:
+            pass
+
+
+def get_thumbnail_path(asset_id: UUID, size: int) -> str:
+    """Get the full filesystem path for a thumbnail file."""
+    thumb_filename = f"{asset_id}_thumb_{size}.webp"
+    return os.path.join(ASSETS_DIR, thumb_filename)
+
+
+def thumbnail_exists(asset_id: UUID, size: int) -> bool:
+    """Check if a thumbnail file exists on disk."""
+    return os.path.exists(get_thumbnail_path(asset_id, size))

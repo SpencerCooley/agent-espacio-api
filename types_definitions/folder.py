@@ -69,6 +69,11 @@ class FolderContentsResponse(BaseModel):
     total_items: int = Field(..., description="Total number of items")
 
 
+class FolderAncestorsResponse(BaseModel):
+    """Response for folder ancestor chain."""
+    ancestors: List[FolderResponse] = Field(..., description="Ancestor folders from root to the requested folder")
+
+
 class DeleteFolderResponse(BaseModel):
     """Response for deleting a folder."""
     message: str = Field(default="Folder and all contents deleted successfully")

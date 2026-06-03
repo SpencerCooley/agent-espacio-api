@@ -4,7 +4,7 @@ Types definitions - asset.
 Pydantic schemas for asset (file) operations.
 """
 from datetime import datetime
-from typing import Optional, List
+from typing import Any, Optional, List
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -22,6 +22,7 @@ class AssetResponse(BaseModel):
     is_image: bool = Field(..., description="Whether this is an image file")
     is_markdown: bool = Field(..., description="Whether this is a markdown file")
     file_extension: str = Field(..., description="File extension")
+    file_meta: Optional[dict[str, Any]] = Field(None, description="Extensible metadata (thumbnails, dimensions, EXIF, etc.)")
     descendant_of: Optional[UUID] = Field(..., description="Parent asset ID if this is a transformation")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")

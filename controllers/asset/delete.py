@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from models.asset import Asset
-from services.file_storage import delete_file
+from services.file_storage import delete_file, delete_thumbnails
 
 
 def delete_asset(
@@ -27,7 +27,9 @@ def delete_asset(
         Database record is always deleted.
         File deletion is attempted but failures are logged, not raised.
     """
-    # Delete the file from disk
+    # Delete thumbnails and the original file from disk
+    if asset.is_image:
+        delete_thumbnails(asset.id)
     file_deleted = delete_file(asset.storage_filename)
     
     # Delete the database record
@@ -57,6 +59,8 @@ def delete_assets_by_folder(
     
     count = 0
     for asset in assets:
+        if asset.is_image:
+            delete_thumbnails(asset.id)
         delete_file(asset.storage_filename)
         db.delete(asset)
         count += 1

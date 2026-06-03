@@ -22,6 +22,7 @@ from types_definitions.folder import (
     FolderResponse,
     FolderListResponse,
     FolderContentsResponse,
+    FolderAncestorsResponse,
     DeleteFolderResponse,
 )
 from types_definitions.artifact import FolderItemResponse
@@ -130,6 +131,28 @@ async def get_folder(
     return folder
 
 
+@router.get("/{folder_id}/ancestors", response_model=FolderAncestorsResponse)
+async def get_folder_ancestors(
+    folder_id: UUID,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the ancestor chain for a folder, from root down to the folder itself.
+    
+    Useful for building breadcrumb navigation.
+    """
+    ancestors = controllers.folder.get_folder_ancestors(db, folder_id)
+    
+    if not ancestors:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Folder not found"
+        )
+    
+    return FolderAncestorsResponse(ancestors=ancestors)
+
+
 @router.get("/{folder_id}/contents", response_model=FolderContentsResponse)
 async def get_folder_contents(
     folder_id: UUID,
@@ -177,6 +200,7 @@ async def get_folder_contents(
             mime_type=a.mime_type,
             size_bytes=a.size_bytes,
             is_image=a.is_image,
+            file_meta=a.file_meta,
             created_at=a.created_at,
             updated_at=a.updated_at,
         ))

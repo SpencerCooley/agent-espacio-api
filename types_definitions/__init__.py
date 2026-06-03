@@ -44,6 +44,7 @@ from types_definitions.folder import (
     FolderTreeItem,
     FolderListResponse,
     FolderContentsResponse,
+    FolderAncestorsResponse,
     DeleteFolderResponse,
 )
 
@@ -99,6 +100,7 @@ __all__ = [
     "FolderTreeItem",
     "FolderListResponse",
     "FolderContentsResponse",
+    "FolderAncestorsResponse",
     "DeleteFolderResponse",
     # Asset
     "AssetResponse",

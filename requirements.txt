@@ -20,5 +20,8 @@ pydantic[email]
 pydantic-settings>=2.2.0
 passlib>=1.7.4
 
+# Image Processing
+Pillow>=10.0.0
+
 # Development
 watchdog>=4.0.0

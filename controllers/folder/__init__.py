@@ -3,7 +3,7 @@ Folder controllers package initialization.
 """
 
 from controllers.folder.create import create_folder
-from controllers.folder.get import get_folder, get_root_folder, get_folder_by_path
+from controllers.folder.get import get_folder, get_root_folder, get_folder_by_path, get_folder_ancestors
 from controllers.folder.list import (
     list_folders,
     get_folder_tree,
@@ -20,6 +20,7 @@ __all__ = [
     "get_folder",
     "get_root_folder",
     "get_folder_by_path",
+    "get_folder_ancestors",
     # List
     "list_folders",
     "get_folder_tree",

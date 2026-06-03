@@ -8,7 +8,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Index, BigInteger
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
 from models.base import Base
@@ -24,9 +24,13 @@ class Asset(Base):
     - File size tracking
     - Descendant tracking for transformation workflows
     - Belongs to a folder (or root if folder_id is NULL)
+    - JSONB file_meta for extensible metadata (thumbnails, EXIF, dimensions, etc.)
     
     On-disk naming: {asset_id}_{sanitized_filename}
     Example: 550e8400-e29b-41d4-a716-446655440000_photo.png
+    
+    Thumbnail naming: {asset_id}_thumb_{size}.webp
+    Example: 550e8400-e29b-41d4-a716-446655440000_thumb_256.webp
     """
     __tablename__ = "assets"
     
@@ -35,6 +39,7 @@ class Asset(Base):
     storage_filename = Column(String(300), nullable=False)  # Actual filename on disk: "{uuid}_{name}"
     mime_type = Column(String(100), nullable=False, default="application/octet-stream")
     size_bytes = Column(BigInteger, nullable=False, default=0)
+    file_meta = Column(JSONB, nullable=True, default=None)  # Extensible metadata: thumbnails, EXIF, dimensions, etc.
     folder_id = Column(UUID(as_uuid=True), ForeignKey("folders.id"), nullable=True, index=True)
     descendant_of = Column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -88,11 +93,34 @@ class Asset(Base):
     @property
     def human_readable_size(self):
         """Convert size_bytes to human readable format."""
+        size = self.size_bytes
         for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if self.size_bytes < 1024.0:
-                return f"{self.size_bytes:.1f} {unit}"
-            self.size_bytes /= 1024.0
-        return f"{self.size_bytes:.1f} PB"
+            if size < 1024.0:
+                return f"{size:.1f} {unit}"
+            size /= 1024.0
+        return f"{size:.1f} PB"
+    
+    @property
+    def available_thumbnails(self) -> list[int]:
+        """Return list of available thumbnail sizes (e.g., [256, 512]) from file_meta."""
+        if not self.file_meta or "thumbnails" not in self.file_meta:
+            return []
+        return [int(s) for s in self.file_meta["thumbnails"].keys()]
+    
+    @property
+    def image_dimensions(self) -> tuple[int, int] | None:
+        """Return (width, height) from file_meta if available."""
+        if not self.file_meta:
+            return None
+        w = self.file_meta.get("width")
+        h = self.file_meta.get("height")
+        if w and h:
+            return (w, h)
+        return None
+    
+    def get_thumbnail_filename(self, size: int) -> str:
+        """Get the storage filename for a thumbnail of the given size."""
+        return f"{self.id}_thumb_{size}.webp"
     
     def get_storage_path(self, base_path="/app/storage"):
         """Return the full storage path for this asset."""

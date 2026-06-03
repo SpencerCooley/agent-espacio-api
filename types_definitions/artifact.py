@@ -88,6 +88,7 @@ class FolderItemResponse(BaseModel):
     mime_type: Optional[str] = Field(None, description="MIME type (only for assets)")
     size_bytes: Optional[int] = Field(None, description="File size in bytes (only for assets)")
     is_image: Optional[bool] = Field(None, description="Whether asset is an image (only for assets)")
+    file_meta: Optional[dict[str, Any]] = Field(None, description="Extensible metadata (only for assets)")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 

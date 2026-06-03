@@ -15,6 +15,7 @@ from services.file_storage import (
     generate_storage_filename,
     save_uploaded_file,
     validate_file_size,
+    generate_thumbnails,
 )
 
 
@@ -66,12 +67,27 @@ def create_asset(
     asset_id = uuid4()
     storage_filename = generate_storage_filename(asset_id, name)
 
+    # Move file from temp to assets directory
+    saved_path = save_uploaded_file(temp_file_path, storage_filename)
+
+    # Generate thumbnails and extract image metadata for image files
+    file_meta = None
+    if mime_type.startswith("image/"):
+        thumbnails, image_info = generate_thumbnails(asset_id, saved_path)
+        if thumbnails or image_info:
+            file_meta = {}
+            if image_info:
+                file_meta.update(image_info)
+            if thumbnails:
+                file_meta["thumbnails"] = thumbnails
+
     asset = Asset(
         id=asset_id,
         name=name,
         storage_filename=storage_filename,
         mime_type=mime_type,
         size_bytes=file_size,
+        file_meta=file_meta,
         folder_id=folder_id,
         descendant_of=descendant_of,
         created_by_id=created_by.id if created_by else None,
@@ -80,8 +96,5 @@ def create_asset(
     db.add(asset)
     db.commit()
     db.refresh(asset)
-
-    # Move file from temp to assets directory
-    save_uploaded_file(temp_file_path, asset.storage_filename)
 
     return asset
