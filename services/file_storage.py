@@ -237,6 +237,49 @@ def read_file_from_path(file_path: str, chunk_size: int = 8192):
             yield chunk
 
 
+def read_text_file(storage_filename: str) -> str:
+    """
+    Read a text file's content by storage filename.
+    
+    Args:
+        storage_filename: The storage filename to read
+    
+    Returns:
+        File content as a string
+    
+    Raises:
+        FileNotFoundError: If file doesn't exist
+    """
+    file_path = get_asset_path(storage_filename)
+    
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {storage_filename}")
+    
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def write_file(storage_filename: str, content: str) -> str:
+    """
+    Write text content to a file, overwriting existing content.
+    
+    Args:
+        storage_filename: The storage filename to write
+        content: Text content to write
+    
+    Returns:
+        Full path to the written file
+    """
+    file_path = get_asset_path(storage_filename)
+    
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    
+    return file_path
+
+
 def cleanup_temp_files(max_age_hours: int = 24):
     """
     Clean up temporary files older than specified hours.

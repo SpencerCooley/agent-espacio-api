@@ -11,7 +11,7 @@ Endpoints for asset (file) management:
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -29,6 +29,7 @@ from services.file_storage import (
     save_uploaded_file,
     read_file,
     read_file_from_path,
+    read_text_file,
     get_thumbnail_path,
     thumbnail_exists,
     THUMBNAIL_SIZES,
@@ -223,6 +224,36 @@ async def download_asset(
         )
 
 
+@router.get("/{asset_id}/content")
+async def get_asset_content(
+    asset_id: UUID,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the text content of an asset.
+    
+    Returns the raw file content as plain text. Intended for text-based files
+    like markdown, text files, etc.
+    """
+    asset = controllers.asset.get_asset(db, asset_id)
+
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Asset not found"
+        )
+
+    try:
+        content = read_text_file(asset.storage_filename)
+        return PlainTextResponse(content, media_type=asset.mime_type)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found on disk"
+        )
+
+
 @router.put("/{asset_id}", response_model=AssetResponse)
 async def update_asset(
     asset_id: UUID,
@@ -250,6 +281,7 @@ async def update_asset(
             asset=asset,
             name=request.name,
             folder_id=request.folder_id,
+            content=request.content,
         )
         return updated
     except ValueError as e:

@@ -16,6 +16,7 @@ from services.file_storage import (
     save_uploaded_file,
     validate_file_size,
     generate_thumbnails,
+    read_text_file,
 )
 
 
@@ -80,6 +81,17 @@ def create_asset(
                 file_meta.update(image_info)
             if thumbnails:
                 file_meta["thumbnails"] = thumbnails
+
+    # Extract preview for markdown files
+    if mime_type in ("text/markdown", "text/x-markdown"):
+        try:
+            content = read_text_file(storage_filename)
+            preview = content[:300].strip()
+            if file_meta is None:
+                file_meta = {}
+            file_meta["preview"] = preview
+        except Exception:
+            pass
 
     asset = Asset(
         id=asset_id,

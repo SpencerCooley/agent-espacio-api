@@ -56,6 +56,7 @@ class UpdateAssetRequest(BaseModel):
     """Request to update an asset."""
     name: Optional[str] = Field(None, description="New filename")
     folder_id: Optional[UUID] = Field(None, description="New parent folder ID")
+    content: Optional[str] = Field(None, description="New file content (for text files)")
 
 
 class AssetUploadResponse(BaseModel):
