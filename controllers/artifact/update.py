@@ -49,6 +49,10 @@ def update_artifact(
     if description is not None:
         artifact.description = description
 
+    # Capture old linked_asset_ids before content changes
+    from ._sync_links import extract_linked_asset_ids
+    old_linked_ids = extract_linked_asset_ids(artifact.content)
+
     # Update content if provided
     if content is not None:
         artifact.content = content
@@ -62,5 +66,8 @@ def update_artifact(
 
     db.commit()
     db.refresh(artifact)
+
+    from ._sync_links import sync_artifact_asset_links
+    sync_artifact_asset_links(db, artifact, old_linked_ids)
 
     return artifact

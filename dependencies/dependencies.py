@@ -323,3 +323,26 @@ def require_auth(
         detail="Invalid authentication",
         headers={"WWW-Authenticate": "Bearer, X-Agent-Key"}
     )
+
+
+def get_ws_auth(token: Optional[str] = None, db: Session = None) -> Optional[User]:
+    """
+    WebSocket authentication - validate Bearer token from WebSocket handshake.
+    
+    Args:
+        token: Bearer token from Authorization header (without 'Bearer ' prefix)
+        db: Database session (caller must provide one)
+        
+    Returns:
+        Optional[User]: Authenticated user if valid, None otherwise
+    """
+    if not token or not db:
+        return None
+    
+    db_token = db.query(Token).filter(Token.token == token).first()
+    
+    if db_token and db_token.is_active:
+        if not db_token.expires_at or db_token.expires_at >= datetime.utcnow():
+            return db_token.user
+    
+    return None

@@ -16,5 +16,6 @@ from . import api_key
 from . import folder
 from . import asset
 from . import artifact
+from . import public
 
-__all__ = ["auth", "user", "api_key", "folder", "asset", "artifact"]
+__all__ = ["auth", "user", "api_key", "folder", "asset", "artifact", "public"]

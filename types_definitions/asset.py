@@ -23,6 +23,8 @@ class AssetResponse(BaseModel):
     is_markdown: bool = Field(..., description="Whether this is a markdown file")
     file_extension: str = Field(..., description="File extension")
     file_meta: Optional[dict[str, Any]] = Field(None, description="Extensible metadata (thumbnails, dimensions, EXIF, etc.)")
+    is_public: bool = Field(..., description="Whether this asset is publicly shared")
+    public_magic_id: Optional[UUID] = Field(None, description="Public share magic link ID")
     descendant_of: Optional[UUID] = Field(..., description="Parent asset ID if this is a transformation")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")

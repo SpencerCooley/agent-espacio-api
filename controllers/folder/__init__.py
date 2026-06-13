@@ -12,6 +12,7 @@ from controllers.folder.list import (
 )
 from controllers.folder.update import update_folder
 from controllers.folder.delete import delete_folder
+from controllers.folder import share
 
 __all__ = [
     # Create
@@ -30,4 +31,6 @@ __all__ = [
     "update_folder",
     # Delete
     "delete_folder",
+    # Share
+    "share",
 ]

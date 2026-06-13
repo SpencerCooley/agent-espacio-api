@@ -56,4 +56,7 @@ def create_artifact(
     db.commit()
     db.refresh(artifact)
 
+    from ._sync_links import sync_artifact_asset_links
+    sync_artifact_asset_links(db, artifact)
+
     return artifact

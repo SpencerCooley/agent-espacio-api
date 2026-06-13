@@ -130,7 +130,7 @@ Discover all supported artifact types and their schemas:
 GET ${AGENT_ESPACIO_API}/artifacts/docs/{type_key}
 
 Currently supported:
-- **note** — Rich text document using TipTap/ProseMirror JSON format
+- **note** — Rich text document using TipTap/ProseMirror JSON format. Supports bold, italic, underline, strikethrough, text color, highlight, lists, headings, images, tables, and more.
 
 ## 6. Important Rules
 

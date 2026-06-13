@@ -38,6 +38,7 @@ from services.file_storage import (
 import controllers
 import os
 import shutil
+from services.events import publish_event
 
 router = APIRouter(
     prefix="/assets",
@@ -111,6 +112,23 @@ async def upload_asset(
             temp_file_path=temp_path,
             created_by=current_user,
             folder_id=folder_id
+        )
+        
+        actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+        parent_id = str(folder_id) if folder_id else "00000000-0000-0000-0000-000000000001"
+        publish_event(
+            event_type="asset.created",
+            folder_id=parent_id,
+            resource_id=str(asset.id),
+            payload={"name": asset.name, "mime_type": asset.mime_type},
+            actor=actor,
+        )
+        publish_event(
+            event_type="folder_contents_changed",
+            folder_id=parent_id,
+            resource_id=str(asset.id),
+            payload={"name": asset.name},
+            actor=actor,
         )
         
         return AssetUploadResponse(asset=asset)
@@ -276,6 +294,7 @@ async def update_asset(
         )
     
     try:
+        original_folder_id = str(asset.folder_id) if asset.folder_id else "00000000-0000-0000-0000-000000000001"
         updated = controllers.asset.update_asset(
             db=db,
             asset=asset,
@@ -283,6 +302,19 @@ async def update_asset(
             folder_id=request.folder_id,
             content=request.content,
         )
+        new_folder_id = str(updated.folder_id) if updated.folder_id else "00000000-0000-0000-0000-000000000001"
+        
+        # Emit move event if folder changed
+        if request.folder_id is not None and new_folder_id != original_folder_id:
+            actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+            publish_event(
+                event_type="asset.moved",
+                folder_id=new_folder_id,
+                resource_id=str(asset_id),
+                payload={"name": updated.name, "source_folder_id": original_folder_id},
+                actor=actor,
+            )
+        
         return updated
     except ValueError as e:
         raise HTTPException(
@@ -310,9 +342,49 @@ async def delete_asset(
             detail="Asset not found"
         )
     
+    folder_id = str(asset.folder_id) if asset.folder_id else "00000000-0000-0000-0000-000000000001"
     file_deleted = controllers.asset.delete_asset(db, asset)
+    
+    actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+    publish_event(
+        event_type="asset.deleted",
+        folder_id=folder_id,
+        resource_id=str(asset_id),
+        payload={"name": asset.name},
+        actor=actor,
+    )
+    publish_event(
+        event_type="folder_contents_changed",
+        folder_id=folder_id,
+        resource_id=str(asset_id),
+        payload={"name": asset.name},
+        actor=actor,
+    )
     
     return DeleteAssetResponse(
         deleted_asset_id=asset_id,
         deleted_file=file_deleted
     )
+
+
+@router.post("/{asset_id}/share", response_model=AssetResponse)
+async def share_asset(
+    asset_id: UUID,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Toggle public sharing for an asset.
+    
+    Generates a public_magic_id when making public, clears it when making private.
+    """
+    asset = controllers.asset.get_asset(db, asset_id)
+    
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Asset not found"
+        )
+    
+    updated = controllers.asset.share.toggle_asset_share(db, asset)
+    return updated

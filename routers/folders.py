@@ -27,6 +27,7 @@ from types_definitions.folder import (
 )
 from types_definitions.artifact import FolderItemResponse
 import controllers
+from services.events import publish_event
 
 router = APIRouter(
     prefix="/folders",
@@ -108,6 +109,24 @@ async def create_folder(
             detail="Parent folder not found"
         )
     
+    # Broadcast creation events for all actors (human + agent)
+    actor = {"type": "agent" if current_user is None else "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+    parent_id = str(folder.parent_id) if folder.parent_id else "00000000-0000-0000-0000-000000000001"
+    publish_event(
+        event_type="folder.created",
+        folder_id=parent_id,
+        resource_id=str(folder.id),
+        payload={"name": folder.name},
+        actor=actor,
+    )
+    publish_event(
+        event_type="folder_contents_changed",
+        folder_id=parent_id,
+        resource_id=str(folder.id),
+        payload={"name": folder.name},
+        actor=actor,
+    )
+    
     return folder
 
 
@@ -187,6 +206,8 @@ async def get_folder_contents(
             mime_type=None,
             size_bytes=None,
             is_image=None,
+            is_public=f.is_public,
+            public_magic_id=f.public_magic_id,
             created_at=f.created_at,
             updated_at=f.updated_at,
         ))
@@ -201,6 +222,8 @@ async def get_folder_contents(
             size_bytes=a.size_bytes,
             is_image=a.is_image,
             file_meta=a.file_meta,
+            is_public=a.is_public,
+            public_magic_id=a.public_magic_id,
             created_at=a.created_at,
             updated_at=a.updated_at,
         ))
@@ -214,6 +237,8 @@ async def get_folder_contents(
             mime_type=None,
             size_bytes=None,
             is_image=None,
+            is_public=ar.is_public,
+            public_magic_id=ar.public_magic_id,
             created_at=ar.created_at,
             updated_at=ar.updated_at,
         ))
@@ -290,7 +315,24 @@ async def delete_folder(
         )
     
     try:
+        parent_id = str(folder.parent_id) if folder.parent_id else "00000000-0000-0000-0000-000000000001"
         subfolders_count, assets_count = controllers.folder.delete_folder(db, folder)
+        
+        actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+        publish_event(
+            event_type="folder.deleted",
+            folder_id=parent_id,
+            resource_id=str(folder_id),
+            payload={"name": folder.name},
+            actor=actor,
+        )
+        publish_event(
+            event_type="folder_contents_changed",
+            folder_id=parent_id,
+            resource_id=str(folder_id),
+            payload={"name": folder.name},
+            actor=actor,
+        )
         
         return DeleteFolderResponse(
             deleted_folder_id=folder_id,
@@ -302,3 +344,33 @@ async def delete_folder(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.post("/{folder_id}/share", response_model=FolderResponse)
+async def share_folder(
+    folder_id: UUID,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Toggle public sharing for a folder.
+    
+    Generates a public_magic_id when making public, clears it when making private.
+    Root folder cannot be shared.
+    """
+    folder = controllers.folder.get_folder(db, folder_id)
+    
+    if not folder:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Folder not found"
+        )
+    
+    if folder.is_root:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Root folder cannot be shared publicly"
+        )
+    
+    updated = controllers.folder.share.toggle_folder_share(db, folder)
+    return updated

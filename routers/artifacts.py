@@ -28,6 +28,7 @@ from types_definitions.artifact import (
 )
 from artifact_types import get_artifact_type, list_artifact_types
 import controllers
+from services.events import publish_event
 
 router = APIRouter(
     prefix="/artifacts",
@@ -83,12 +84,65 @@ async def create_artifact(
             created_by=current_user,
             description=request.description,
         )
+        actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+        folder_id = str(request.folder_id) if request.folder_id else "00000000-0000-0000-0000-000000000001"
+        publish_event(
+            event_type="artifact.created",
+            folder_id=folder_id,
+            resource_id=str(artifact.id),
+            payload={"name": artifact.name, "type": artifact.type},
+            actor=actor,
+        )
+        publish_event(
+            event_type="folder_contents_changed",
+            folder_id=folder_id,
+            resource_id=str(artifact.id),
+            payload={"name": artifact.name},
+            actor=actor,
+        )
         return artifact
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.get("/docs", response_model=ArtifactTypeListResponse)
+async def list_artifact_types_docs(
+    current_user: Optional[User] = Depends(require_auth),
+):
+    """
+    List all artifact type definitions.
+
+    Returns documentation for every supported artifact type.
+    Use this to discover what artifacts are available and how to create them.
+    """
+    types_data = list_artifact_types()
+    types = [ArtifactTypeResponse(**t) for t in types_data]
+
+    return ArtifactTypeListResponse(types=types, total=len(types))
+
+
+@router.get("/docs/{type_key}", response_model=ArtifactTypeResponse)
+async def get_artifact_type_docs(
+    type_key: str,
+    current_user: Optional[User] = Depends(require_auth),
+):
+    """
+    Get documentation for a specific artifact type.
+
+    - **type_key**: The artifact type key (e.g., "note")
+    """
+    type_data = get_artifact_type(type_key)
+
+    if not type_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Artifact type '{type_key}' not found"
+        )
+
+    return ArtifactTypeResponse(**type_data)
 
 
 @router.get("/{artifact_id}", response_model=ArtifactResponse)
@@ -132,6 +186,7 @@ async def update_artifact(
         )
 
     try:
+        original_folder_id = str(artifact.folder_id) if artifact.folder_id else "00000000-0000-0000-0000-000000000001"
         updated = controllers.artifact.update_artifact(
             db=db,
             artifact=artifact,
@@ -141,6 +196,19 @@ async def update_artifact(
             content=request.content,
             folder_id=request.folder_id,
         )
+        new_folder_id = str(updated.folder_id) if updated.folder_id else "00000000-0000-0000-0000-000000000001"
+        
+        # Emit move event if folder changed
+        if request.folder_id is not None and new_folder_id != original_folder_id:
+            actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+            publish_event(
+                event_type="artifact.moved",
+                folder_id=new_folder_id,
+                resource_id=str(artifact_id),
+                payload={"name": updated.name, "source_folder_id": original_folder_id},
+                actor=actor,
+            )
+        
         return updated
     except ValueError as e:
         raise HTTPException(
@@ -168,43 +236,46 @@ async def delete_artifact(
             detail="Artifact not found"
         )
 
+    folder_id = str(artifact.folder_id) if artifact.folder_id else "00000000-0000-0000-0000-000000000001"
     controllers.artifact.delete_artifact(db, artifact)
+
+    actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+    publish_event(
+        event_type="artifact.deleted",
+        folder_id=folder_id,
+        resource_id=str(artifact_id),
+        payload={"name": artifact.name},
+        actor=actor,
+    )
+    publish_event(
+        event_type="folder_contents_changed",
+        folder_id=folder_id,
+        resource_id=str(artifact_id),
+        payload={"name": artifact.name},
+        actor=actor,
+    )
 
     return DeleteArtifactResponse(deleted_artifact_id=artifact_id)
 
 
-@router.get("/docs", response_model=ArtifactTypeListResponse)
-async def list_artifact_types_docs(
+@router.post("/{artifact_id}/share", response_model=ArtifactResponse)
+async def share_artifact(
+    artifact_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
 ):
     """
-    List all artifact type definitions.
-
-    Returns documentation for every supported artifact type.
-    Use this to discover what artifacts are available and how to create them.
+    Toggle public sharing for an artifact.
+    
+    Generates a public_magic_id when making public, clears it when making private.
     """
-    types_data = list_artifact_types()
-    types = [ArtifactTypeResponse(**t) for t in types_data]
-
-    return ArtifactTypeListResponse(types=types, total=len(types))
-
-
-@router.get("/docs/{type_key}", response_model=ArtifactTypeResponse)
-async def get_artifact_type_docs(
-    type_key: str,
-    current_user: Optional[User] = Depends(require_auth),
-):
-    """
-    Get documentation for a specific artifact type.
-
-    - **type_key**: The artifact type key (e.g., "note")
-    """
-    type_data = get_artifact_type(type_key)
-
-    if not type_data:
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+    
+    if not artifact:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Artifact type '{type_key}' not found"
+            detail="Artifact not found"
         )
-
-    return ArtifactTypeResponse(**type_data)
+    
+    updated = controllers.artifact.share.toggle_artifact_share(db, artifact)
+    return updated

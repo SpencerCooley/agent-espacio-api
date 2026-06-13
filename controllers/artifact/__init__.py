@@ -7,6 +7,7 @@ from controllers.artifact.get import get_artifact
 from controllers.artifact.list import list_artifacts, list_all_artifacts, count_artifacts_in_folder
 from controllers.artifact.update import update_artifact
 from controllers.artifact.delete import delete_artifact
+from controllers.artifact import share
 
 __all__ = [
     # Create
@@ -21,4 +22,6 @@ __all__ = [
     "update_artifact",
     # Delete
     "delete_artifact",
+    # Share
+    "share",
 ]

@@ -36,6 +36,8 @@ class ArtifactResponse(BaseModel):
     description: Optional[str] = Field(None, description="Description/readme for AI context")
     content: dict[str, Any] = Field(..., description="Artifact content JSONB")
     folder_id: UUID = Field(..., description="Parent folder ID")
+    is_public: bool = Field(..., description="Whether this artifact is publicly shared")
+    public_magic_id: Optional[UUID] = Field(None, description="Public share magic link ID")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
     created_by_id: Optional[int] = Field(None, description="ID of user who created the artifact")
@@ -89,6 +91,8 @@ class FolderItemResponse(BaseModel):
     size_bytes: Optional[int] = Field(None, description="File size in bytes (only for assets)")
     is_image: Optional[bool] = Field(None, description="Whether asset is an image (only for assets)")
     file_meta: Optional[dict[str, Any]] = Field(None, description="Extensible metadata (only for assets)")
+    is_public: bool = Field(..., description="Whether this item is publicly shared")
+    public_magic_id: Optional[UUID] = Field(None, description="Public share magic link ID")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 

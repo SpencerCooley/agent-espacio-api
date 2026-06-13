@@ -17,5 +17,8 @@ def delete_artifact(
         db: Database session
         artifact: Artifact object to delete
     """
+    from ._sync_links import remove_artifact_from_all_links
+    remove_artifact_from_all_links(db, artifact)
+
     db.delete(artifact)
     db.commit()

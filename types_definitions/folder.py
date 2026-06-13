@@ -31,6 +31,8 @@ class FolderResponse(BaseModel):
     parent_id: Optional[UUID] = Field(..., description="Parent folder ID")
     path: str = Field(..., description="Materialized path in folder tree")
     is_root: bool = Field(..., description="Whether this is the system root folder")
+    is_public: bool = Field(..., description="Whether this folder is publicly shared")
+    public_magic_id: Optional[UUID] = Field(None, description="Public share magic link ID")
     depth: int = Field(..., description="Depth in folder tree (0 = root)")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")

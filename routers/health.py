@@ -45,3 +45,36 @@ async def health_task_status(task_id: str):
         The current status and result of the task.
     """
     return get_task_status(task_id)
+
+
+@router.get("/ws")
+async def ws_health_check():
+    """
+    WebSocket health check endpoint.
+    
+    Returns the current WebSocket connection count and Redis status.
+    """
+    from services import events
+    from routers.ws import _connections
+    return {
+        "status": "ok",
+        "redis_url": events.REDIS_URL,
+        "connections": len(_connections),
+    }
+
+
+@router.post("/ws-test")
+async def ws_test():
+    """
+    Test WebSocket pub/sub by publishing a test event.
+    """
+    from services.events import publish_event
+    import uuid
+    test_id = str(uuid.uuid4())
+    publish_event(
+        event_type="test.event",
+        folder_id="00000000-0000-0000-0000-000000000001",
+        resource_id=test_id,
+        payload={"test": True},
+    )
+    return {"status": "published", "test_id": test_id}

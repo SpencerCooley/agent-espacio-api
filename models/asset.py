@@ -7,7 +7,7 @@ Supports descendant tracking for transformations (e.g., AI-generated variations)
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Index, BigInteger
+from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Index, BigInteger, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
@@ -41,6 +41,8 @@ class Asset(Base):
     size_bytes = Column(BigInteger, nullable=False, default=0)
     file_meta = Column(JSONB, nullable=True, default=None)  # Extensible metadata: thumbnails, EXIF, dimensions, etc.
     folder_id = Column(UUID(as_uuid=True), ForeignKey("folders.id"), nullable=True, index=True)
+    is_public = Column(Boolean, default=False, server_default='false', nullable=False)
+    public_magic_id = Column(UUID(as_uuid=True), nullable=True, unique=True, index=True)
     descendant_of = Column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -67,6 +69,7 @@ class Asset(Base):
         Index('ix_assets_mime_type', 'mime_type'),
         Index('ix_assets_created_at', 'created_at'),
         Index('ix_assets_folder_mime', 'folder_id', 'mime_type'),
+        Index('ix_assets_public_magic_id', 'public_magic_id', unique=True),
     )
     
     def __repr__(self):

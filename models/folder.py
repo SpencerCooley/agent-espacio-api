@@ -31,6 +31,8 @@ class Folder(Base):
     parent_id = Column(UUID(as_uuid=True), ForeignKey("folders.id"), nullable=True, index=True)
     path = Column(String(1024), nullable=False, default="/")
     is_root = Column(Boolean, default=False, nullable=False)
+    is_public = Column(Boolean, default=False, server_default='false', nullable=False)
+    public_magic_id = Column(UUID(as_uuid=True), nullable=True, unique=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
@@ -65,6 +67,7 @@ class Folder(Base):
     __table_args__ = (
         Index('ix_folders_path', 'path'),
         Index('ix_folders_name_parent', 'name', 'parent_id'),
+        Index('ix_folders_public_magic_id', 'public_magic_id', unique=True),
     )
     
     def __repr__(self):

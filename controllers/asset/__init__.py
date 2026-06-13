@@ -12,6 +12,7 @@ from controllers.asset.list import (
 )
 from controllers.asset.update import update_asset
 from controllers.asset.delete import delete_asset, delete_assets_by_folder
+from controllers.asset import share
 
 __all__ = [
     # Create
@@ -29,4 +30,6 @@ __all__ = [
     # Delete
     "delete_asset",
     "delete_assets_by_folder",
+    # Share
+    "share",
 ]

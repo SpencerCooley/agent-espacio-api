@@ -7,7 +7,7 @@ They live in folders alongside assets. Examples: maps, charts, 3D scenes, etc.
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Index, Text
+from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Index, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
@@ -32,6 +32,8 @@ class Artifact(Base):
     description = Column(Text, nullable=True)
     content = Column(JSONB, nullable=False, default=dict)
     folder_id = Column(UUID(as_uuid=True), ForeignKey("folders.id"), nullable=False, index=True)
+    is_public = Column(Boolean, default=False, server_default='false', nullable=False)
+    public_magic_id = Column(UUID(as_uuid=True), nullable=True, unique=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
@@ -45,6 +47,7 @@ class Artifact(Base):
         Index('ix_artifacts_type', 'type'),
         Index('ix_artifacts_folder_type', 'folder_id', 'type'),
         Index('ix_artifacts_created_at', 'created_at'),
+        Index('ix_artifacts_public_magic_id', 'public_magic_id', unique=True),
     )
     
     def __repr__(self):
