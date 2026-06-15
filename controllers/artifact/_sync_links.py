@@ -17,10 +17,32 @@ def extract_linked_asset_ids(content: dict | None) -> set[str]:
     """Extract linked_asset_ids from artifact content."""
     if not content or not isinstance(content, dict):
         return set()
+    
+    ids: set[str] = set()
+    
+    # Notes: linked_asset_ids at top level
     raw = content.get("linked_asset_ids", [])
-    if not isinstance(raw, list):
-        return set()
-    return {str(aid) for aid in raw if aid}
+    if isinstance(raw, list):
+        ids.update({str(aid) for aid in raw if aid})
+    
+    # Maps: extract from geojson feature associations
+    geojson = content.get("geojson")
+    if isinstance(geojson, dict):
+        features = geojson.get("features", [])
+        if isinstance(features, list):
+            for feature in features:
+                if isinstance(feature, dict):
+                    properties = feature.get("properties", {})
+                    if isinstance(properties, dict):
+                        associations = properties.get("associations", [])
+                        if isinstance(associations, list):
+                            for assoc in associations:
+                                if isinstance(assoc, dict) and assoc.get("type") == "asset":
+                                    asset_id = assoc.get("id")
+                                    if asset_id:
+                                        ids.add(str(asset_id))
+    
+    return ids
 
 
 def sync_artifact_asset_links(

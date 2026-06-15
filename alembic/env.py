@@ -26,7 +26,7 @@ from models.reset_token import ResetToken  # noqa: F401 - import to register wit
 from models.asset import Asset 
 from models.folder import Folder 
 from models.artifact import Artifact
-
+from models.settings import Setting
 
 # this is the Alembic Config object
 config = context.config

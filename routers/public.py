@@ -20,6 +20,7 @@ import controllers
 from models.asset import Asset
 from models.folder import Folder
 from services.file_storage import get_asset_path
+from controllers.settings import get_public_theme
 
 router = APIRouter(
     prefix="/public",
@@ -118,7 +119,8 @@ async def public_view(
             },
             "ancestors": ancestors,
             "items": folder_items,
-            "total_items": len(folder_items)
+            "total_items": len(folder_items),
+            "public_theme": get_public_theme(db)
         }
     
     elif kind == 'asset':
@@ -135,7 +137,8 @@ async def public_view(
                 "public_magic_id": item.public_magic_id,
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
-            }
+            },
+            "public_theme": get_public_theme(db)
         }
     
     elif kind == 'artifact':
@@ -151,7 +154,8 @@ async def public_view(
                 "public_magic_id": item.public_magic_id,
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
-            }
+            },
+            "public_theme": get_public_theme(db)
         }
     
     raise HTTPException(

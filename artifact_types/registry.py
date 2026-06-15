@@ -28,6 +28,14 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "Use this artifact to create structured text documents. "
             "The content follows the TipTap/ProseMirror document format: a JSON object with "
             "a 'type': 'doc' root containing an array of 'content' nodes.\n\n"
+            "WHEN TO USE:\n"
+            "  - Meeting notes, project documentation, planning docs\n"
+            "  - Any content that needs rich formatting (bold, lists, tables, images)\n"
+            "  - Content that references workspace assets (images, files)\n\n"
+            "WHEN NOT TO USE:\n"
+            "  - Raw code files (use markdown assets instead)\n"
+            "  - Structured data that needs schemas (use JSON assets instead)\n"
+            "  - Process workflows (use workflow artifacts instead)\n\n"
             "TOP-LEVEL STRUCTURE:\n"
             "{\n"
             '  "type": "doc",\n'
@@ -77,6 +85,13 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  Tables are built as: table > tableRow > tableCell/tableHeader > paragraph > text. "
             "The first row is typically tableHeader for column headers. "
             "Tables support insert/delete rows and columns.\n\n"
+            "COMMON PITFALLS:\n"
+            "  1. Forgetting to upload images as assets BEFORE embedding them. "
+            "     The image src must be a valid asset download URL.\n"
+            "  2. Using 'text' nodes without wrapping them in a 'paragraph' node. "
+            "     All text content must live inside a paragraph, heading, or table cell.\n"
+            "  3. Missing the 'type': 'doc' root object. The content must be a full TipTap document.\n"
+            "  4. Using 'taskList' without proper 'taskItem' children. Each taskItem must have a paragraph.\n\n"
             "WHEN CREATING A NOTE VIA API:\n"
             "  POST /artifacts with body:\n"
             '  { "name": "...", "type": "note", "folder_id": "...",\n'
@@ -311,6 +326,521 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
         },
         "icon": "note",
         "category": "productivity"
+    },
+    "workflow": {
+        "key": "workflow",
+        "name": "Workflow",
+        "description": "Visual, collaborative process builder for repeatable agentic workflows. Nodes + edges represent actions, AI steps, human approvals, and decisions.",
+        "ai_instructions": (
+            "Use this artifact to design and execute repeatable agentic processes. "
+            "A workflow is a directed graph of nodes (steps) connected by edges (transitions).\n\n"
+            "WHEN TO USE:\n"
+            "  - Multi-step processes that an AI agent will execute\n"
+            "  - Processes that require human approval at certain points\n"
+            "  - Documenting standard operating procedures for AI execution\n"
+            "  - Creating reusable recipes that can be shared across projects\n\n"
+            "WHEN NOT TO USE:\n"
+            "  - Simple one-off tasks (just write the instructions directly)\n"
+            "  - Complex branching logic with many conditions (use code/scripts)\n"
+            "  - Real-time collaborative editing (use note artifacts instead)\n\n"
+            "TOP-LEVEL STRUCTURE:\n"
+            "{\n"
+            '  "nodes": [...],\n'
+            '  "edges": [...],\n'
+            '  "viewport": { "x": 0, "y": 0, "zoom": 1 },  // optional, canvas pan/zoom state\n'
+            '  "linked_workflow_ids": ["uuid-1"],  // optional, referenced sub-workflows\n'
+            '  "linked_item_ids": ["uuid-2"]      // optional, linked folders/assets/artifacts\n'
+            "}\n\n"
+            "NODE STRUCTURE:\n"
+            "Each node has:\n"
+            "  - id: unique string (e.g., 'node-1')\n"
+            "  - type: one of the node types below\n"
+            "  - position: { x: number, y: number } for canvas layout\n"
+            "  - data: { title, description?, prompt?, code?, parameters?, linked_item_id?, linked_item_type? }\n\n"
+            "NODE TYPES:\n"
+            "  - action: Regular process step. Title + description + optional code.\n"
+            "  - ai_action: AI-generated step. Has a 'prompt' field for the AI prompt template.\n"
+            "               Parameters may include model, temperature, output format, etc.\n"
+            "  - human_in_loop: Pause for human review/approval. Parameters may include approval_required.\n"
+            "  - espacio_action: Native Agent Espacio action. Parameters must include 'action' key:\n"
+            "                    create_folder, create_artifact, upload_asset, update_artifact, share_folder, share_asset\n"
+            "  - decision: Branching logic. Parameters must include 'conditions' array:\n"
+            "              [{ label: 'Yes', target: 'node-id' }, { label: 'No', target: 'node-id' }]\n"
+            "  - code: Small executable script. Has a 'code' field with the script text.\n"
+            "  - data_reference: Link to existing workspace item. Has linked_item_id + linked_item_type.\n"
+            "  - workflow_reference: Reference to another workflow. Has linked_item_id (the workflow ID).\n"
+            "  - readme: Documentation node with no connection handles. Provides context for the workflow.\n"
+            "           Has a 'description' field (supports multi-line text). No code, no parameters.\n"
+            "           Used for prerequisites, explanations, and notes. Not executable.\n\n"
+            "EDGE STRUCTURE:\n"
+            "Each edge has:\n"
+            "  - id: unique string (e.g., 'edge-1')\n"
+            "  - source: source node id\n"
+            "  - target: target node id\n"
+            "  - label?: optional text label (e.g., 'Yes', 'No', 'Next')\n"
+            "  - sourceHandle?: optional handle identifier for decision branches\n\n"
+            "AI EXECUTION GUIDE:\n"
+            "1. Read all 'readme' nodes first to understand prerequisites and context.\n"
+            "2. Find the start node(s) — nodes with no incoming edges.\n"
+            "3. Execute each node sequentially following edge directions.\n"
+            "4. For 'ai_action' nodes: read the prompt template, substitute parameters, execute.\n"
+            "5. For 'human_in_loop' nodes: pause execution and wait for human signal.\n"
+            "6. For 'decision' nodes: evaluate conditions and follow the matching branch edge.\n"
+            "7. For 'espacio_action' nodes: call the Agent Espacio API directly.\n"
+            "8. For 'code' nodes: execute the script in a safe environment.\n"
+            "9. For 'workflow_reference' nodes: recursively execute the referenced workflow.\n"
+            "10. Skip 'readme' nodes during execution — they are documentation only.\n"
+            "11. Continue until reaching a node with no outgoing edges (terminal).\n\n"
+            "COMMON PITFALLS:\n"
+            "  1. Uploading files to the wrong folder. Always check the folder roles in the workflow:\n"
+            "     - stills/ = original images, animated/ = generated videos, parent/ = final output\n"
+            "  2. Not reading readme nodes before execution. They contain prerequisites.\n"
+            "  3. Forgetting to handle 'human_in_loop' nodes — you must wait for human confirmation.\n"
+            "  4. Using decision nodes without proper sourceHandle values on edges.\n"
+            "  5. Creating duplicate asset IDs when uploading files. Always check if the file exists first.\n"
+            "  6. Not cleaning up temp files after execution. Always delete /tmp/ workspace after completion.\n"
+            "  7. Using 'workflow_reference' without verifying the referenced workflow exists.\n\n"
+            "NODE TYPE DETAILS:\n"
+            "  - espacio_action: The 'action' parameter must be one of:\n"
+            "      create_folder, create_artifact, upload_asset, update_artifact, share_folder, share_asset\n"
+            "    Each action requires specific additional parameters.\n"
+            "  - decision: The 'conditions' array defines branches. Each condition has:\n"
+            "      { label: 'Yes', target: 'node-id', criteria: 'width > height' }\n"
+            "    The edge from a decision node should have sourceHandle matching the label.\n"
+            "  - readme: No connection handles, no edges. Place at the top of the workflow for context.\n"
+            "    Use for: prerequisites, expected inputs, expected outputs, troubleshooting notes.\n\n"
+            "WHEN CREATING A WORKFLOW VIA API:\n"
+            "  POST /artifacts with body:\n"
+            '  { "name": "...", "type": "workflow", "folder_id": "...",\n'
+            '    "content": { "nodes": [...], "edges": [...] } }\n\n'
+            "WHEN UPDATING:\n"
+            "  PUT /artifacts/{id} with the full updated content.\n"
+            "  The editor auto-saves (1.5s debounce) so batch changes before saving.\n\n"
+            "SHARING WORKFLOWS:\n"
+            "  Workflows can be made public via is_public=true. This generates a public_magic_id\n"
+            "  that allows anyone to view the workflow without authentication.\n"
+            "  Public workflows are read-only."
+        ),
+        "content_schema": {
+            "type": "object",
+            "required": ["nodes", "edges"],
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["id", "type", "position", "data"],
+                        "properties": {
+                            "id": {"type": "string", "description": "Unique node identifier"},
+                            "type": {
+                                "type": "string",
+                                "enum": ["action", "ai_action", "human_in_loop", "espacio_action", "decision", "code", "data_reference", "workflow_reference", "readme"],
+                                "description": "Node type"
+                            },
+                            "position": {
+                                "type": "object",
+                                "required": ["x", "y"],
+                                "properties": {
+                                    "x": {"type": "number"},
+                                    "y": {"type": "number"}
+                                }
+                            },
+                            "data": {
+                                "type": "object",
+                                "required": ["title"],
+                                "properties": {
+                                    "title": {"type": "string", "description": "Node display title"},
+                                    "description": {"type": "string", "description": "Optional detailed description"},
+                                    "prompt": {"type": "string", "description": "AI prompt template (for ai_action nodes)"},
+                                    "code": {"type": "string", "description": "Script code (for code nodes)"},
+                                    "linked_item_id": {"type": "string", "format": "uuid", "description": "Linked workspace item ID"},
+                                    "linked_item_type": {"type": "string", "enum": ["folder", "asset", "artifact"], "description": "Type of linked item"},
+                                    "parameters": {
+                                        "type": "object",
+                                        "description": "Type-specific configuration parameters"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "edges": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["id", "source", "target"],
+                        "properties": {
+                            "id": {"type": "string", "description": "Unique edge identifier"},
+                            "source": {"type": "string", "description": "Source node ID"},
+                            "target": {"type": "string", "description": "Target node ID"},
+                            "label": {"type": "string", "description": "Optional edge label text"},
+                            "sourceHandle": {"type": "string", "description": "Optional source handle for decision branches"}
+                        }
+                    }
+                },
+                "viewport": {
+                    "type": "object",
+                    "required": ["x", "y", "zoom"],
+                    "properties": {
+                        "x": {"type": "number", "description": "Canvas pan X offset"},
+                        "y": {"type": "number", "description": "Canvas pan Y offset"},
+                        "zoom": {"type": "number", "description": "Canvas zoom level (1 = 100%)"}
+                    },
+                    "description": "Saved canvas pan/zoom state for consistent viewing"
+                },
+                "linked_workflow_ids": {
+                    "type": "array",
+                    "items": {"type": "string", "format": "uuid"},
+                    "description": "UUIDs of referenced sub-workflows"
+                },
+                "linked_item_ids": {
+                    "type": "array",
+                    "items": {"type": "string", "format": "uuid"},
+                    "description": "UUIDs of linked workspace items"
+                },
+                "is_public": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Whether this workflow is publicly viewable"
+                },
+                "public_magic_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Auto-generated public access token (set when is_public=true)"
+                }
+            }
+        },
+        "example_content": {
+            "content": {
+                "viewport": {"x": 0, "y": 0, "zoom": 1},
+                "nodes": [
+                    {
+                        "id": "node-readme",
+                        "type": "readme",
+                        "position": {"x": 100, "y": -50},
+                        "data": {
+                            "title": "Readme",
+                            "description": "This workflow generates ad variations from product photos.\\n\\nPrerequisites:\\n- Product photos in the workspace\\n- REPLICATE_API_TOKEN set\\n\\nOutput: 5 AI-generated variations in the variations/ folder",
+                            "parameters": {}
+                        }
+                    },
+                    {
+                        "id": "node-1",
+                        "type": "action",
+                        "position": {"x": 100, "y": 100},
+                        "data": {
+                            "title": "Upload Product Photos",
+                            "description": "Upload raw product photos to the workspace",
+                            "parameters": {}
+                        }
+                    },
+                    {
+                        "id": "node-2",
+                        "type": "ai_action",
+                        "position": {"x": 350, "y": 100},
+                        "data": {
+                            "title": "Generate Variations",
+                            "description": "Use AI to generate ad variations",
+                            "prompt": "Generate 5 lifestyle variations of the product photo with different backgrounds and lighting.",
+                            "parameters": {
+                                "model": "wan-video/wan-2.7-i2v",
+                                "num_variations": 5
+                            }
+                        }
+                    },
+                    {
+                        "id": "node-3",
+                        "type": "human_in_loop",
+                        "position": {"x": 600, "y": 100},
+                        "data": {
+                            "title": "Review & Approve",
+                            "description": "Human reviews the generated variations",
+                            "parameters": {
+                                "approval_required": True
+                            }
+                        }
+                    },
+                    {
+                        "id": "node-4",
+                        "type": "espacio_action",
+                        "position": {"x": 850, "y": 100},
+                        "data": {
+                            "title": "Create Public Gallery",
+                            "description": "Create a folder and share the approved images",
+                            "parameters": {
+                                "action": "create_folder",
+                                "folder_name": "Approved Ad Variations"
+                            }
+                        }
+                    }
+                ],
+                "edges": [
+                    {
+                        "id": "edge-1",
+                        "source": "node-1",
+                        "target": "node-2",
+                        "label": "photos uploaded"
+                    },
+                    {
+                        "id": "edge-2",
+                        "source": "node-2",
+                        "target": "node-3",
+                        "label": "variations generated"
+                    },
+                    {
+                        "id": "edge-3",
+                        "source": "node-3",
+                        "target": "node-4",
+                        "label": "approved"
+                    }
+                ]
+            }
+        },
+        "icon": "account_tree",
+        "category": "orchestration"
+    },
+    "map": {
+        "key": "map",
+        "name": "Map",
+        "description": "An interactive geospatial map with positionable viewport, zoom, and deck.gl data visualization support.",
+        "ai_instructions": (
+            "Use this artifact to create and save interactive maps. "
+            "The map stores viewport state (center lat/lng, zoom, pitch, bearing, and bounds) so that "
+            "when a human opens it later, the map is exactly where they left it.\n\n"
+            "WHEN TO USE:\n"
+            "  - Geospatial data visualization (points, polygons, heatmaps)\n"
+            "  - Location-based project planning or documentation\n"
+            "  - Creating map-based reports or dashboards\n\n"
+            "WHEN NOT TO USE:\n"
+            "  - Static images of maps (use image assets instead)\n"
+            "  - Tabular location data without spatial visualization (use note or JSON asset)\n\n"
+            "TOP-LEVEL STRUCTURE:\n"
+            "{\n"
+            '  "viewport": {\n'
+            '    "latitude": 20.0,      // Center latitude (-90 to 90)\n'
+            '    "longitude": 0.0,     // Center longitude (-180 to 180)\n'
+            '    "zoom": 2.0,          // Zoom level (0 = world, 20 = building)\n'
+            '    "pitch": 0.0,         // Tilt angle in degrees (0 = top-down)\n'
+            '    "bearing": 0.0,       // Rotation in degrees (0 = north up)\n'
+            '    "bounds": {\n'
+            '      "north": 85.0,      // Bounding box north latitude\n'
+            '      "south": -85.0,     // Bounding box south latitude\n'
+            '      "east": 180.0,      // Bounding box east longitude\n'
+            '      "west": -180.0      // Bounding box west longitude\n'
+            '    }\n'
+            '  },\n'
+            '  "style": "carto-voyager",      // Map tile style (carto-voyager, osm, dark-matter, google-satellite)\n'
+            '  "layers": [],                  // Array of deck.gl layers (optional, future feature)\n'
+            '  "geojson": {                   // GeoJSON FeatureCollection for user-drawn geometries\n'
+            '    "type": "FeatureCollection",\n'
+            '    "features": [                  // Array of Point, LineString, MultiLineString, Polygon, MultiPolygon features\n'
+            '      {\n'
+            '        "type": "Feature",\n'
+            '        "id": "feat-123",\n'
+            '        "geometry": { "type": "Point", "coordinates": [lng, lat] },\n'
+            '        "properties": {\n'
+            '          "name": "Waypoint 1",\n'
+            '          "description": "Landing zone",\n'
+            '          "style": { "color": "#1976d2", "fillOpacity": 0.3, "strokeWidth": 2 },\n'
+            '          "associations": [\n'
+            '            { "type": "artifact", "id": "uuid", "name": "Flight Plan", "kind": "note" }\n'
+            '          ],\n'
+            '          "metadata": { "altitude": "100m", "restricted": true }\n'
+            '        }\n'
+            '      }\n'
+            '    ]\n'
+            '  }\n'
+            "}\n\n"
+            "VIEWPORT FIELDS:\n"
+            "  - latitude: Center latitude of the map view\n"
+            "  - longitude: Center longitude of the map view\n"
+            "  - zoom: Zoom level (0 = world, 10 = city, 15 = street, 20 = building)\n"
+            "  - pitch: Camera tilt in degrees (0 = straight down, 60 = oblique)\n"
+            "  - bearing: Camera rotation in degrees (0 = north at top)\n"
+            "  - bounds: Geographic bounding box (north, south, east, west) as float values\n\n"
+            "FEATURE PROPERTIES:\n"
+            "  - name: Display name for the geometry (e.g., 'Waypoint 1', 'Prohibited Area')\n"
+            "  - description: Optional description text\n"
+            "  - style.color: Hex color string for the feature\n"
+            "  - style.fillOpacity: Fill opacity (0-1) for polygons\n"
+            "  - style.strokeWidth: Line width in pixels\n"
+            "  - associations: Array of linked workspace items (artifacts/assets)\n"
+            "  - metadata: Arbitrary JSON object for custom data\n\n"
+            "WHEN CREATING A MAP VIA API:\n"
+            "  POST /artifacts with body:\n"
+            '  { "name": "San Francisco", "type": "map", "folder_id": "...",\n'
+            '    "content": { "viewport": {...}, "style": "carto-voyager", "geojson": { "type": "FeatureCollection", "features": [] } } }\n\n'
+            "WHEN UPDATING:\n"
+            "  PUT /artifacts/{id} with updated viewport or geojson. The UI auto-saves viewport changes (1.5s debounce).\n\n"
+            "GEOJSON DRAWING:\n"
+            "  The UI supports drawing Point, LineString, and Polygon features directly on the map.\n"
+            "  Features are stored in the geojson field as a standard GeoJSON FeatureCollection.\n"
+            "  Each feature has: { type: 'Feature', geometry: { type, coordinates }, properties: { name, style, associations, metadata } }\n\n"
+            "COMMON PITFALLS:\n"
+            "  1. Forgetting bounds. The bounds field is essential for quick zoom-to-fit operations.\n"
+            "  2. Latitude/longitude outside valid ranges. Latitude must be -90 to 90, longitude -180 to 180.\n"
+            "  3. Using zoom values outside 0-20. The map supports 0-20, but most tiles max at 18-19.\n"
+            "  4. GeoJSON features must use [longitude, latitude] coordinate order (not lat,lng).\n"
+            "  5. Associations are loose references. The linked item may be deleted independently.\n"
+        ),
+        "content_schema": {
+            "type": "object",
+            "required": ["viewport"],
+            "properties": {
+                "viewport": {
+                    "type": "object",
+                    "required": ["latitude", "longitude", "zoom", "pitch", "bearing", "bounds"],
+                    "properties": {
+                        "latitude": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90,
+                            "description": "Center latitude of the map view"
+                        },
+                        "longitude": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180,
+                            "description": "Center longitude of the map view"
+                        },
+                        "zoom": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 20,
+                            "description": "Zoom level (0 = world, 20 = building)"
+                        },
+                        "pitch": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 85,
+                            "description": "Camera tilt in degrees (0 = top-down)"
+                        },
+                        "bearing": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180,
+                            "description": "Camera rotation in degrees (0 = north up)"
+                        },
+                        "bounds": {
+                            "type": "object",
+                            "required": ["north", "south", "east", "west"],
+                            "properties": {
+                                "north": {"type": "number", "description": "North bounding latitude"},
+                                "south": {"type": "number", "description": "South bounding latitude"},
+                                "east": {"type": "number", "description": "East bounding longitude"},
+                                "west": {"type": "number", "description": "West bounding longitude"}
+                            }
+                        }
+                    }
+                },
+                "style": {
+                    "type": "string",
+                    "enum": ["carto-voyager", "osm", "dark-matter", "google-satellite"],
+                    "default": "carto-voyager",
+                    "description": "Map tile style"
+                },
+                "layers": {
+                    "type": "array",
+                    "description": "deck.gl layers for data visualization (future feature)",
+                    "items": {"type": "object"}
+                },
+                "geojson": {
+                    "type": "object",
+                    "description": "GeoJSON FeatureCollection with user-drawn geometries (points, lines, polygons)",
+                    "properties": {
+                        "type": {"const": "FeatureCollection"},
+                        "features": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {"const": "Feature"},
+                                    "geometry": {
+                                        "type": "object",
+                                        "properties": {
+                                            "type": {"type": "string", "enum": ["Point", "LineString", "MultiLineString", "Polygon", "MultiPolygon"]}
+                                        }
+                                    },
+                                    "properties": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string", "description": "Display name for the geometry"},
+                                            "description": {"type": "string", "description": "Optional description text"},
+                                            "style": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "color": {"type": "string", "description": "Hex color string"},
+                                                    "fillOpacity": {"type": "number", "minimum": 0, "maximum": 1, "description": "Fill opacity for polygons"},
+                                                    "strokeWidth": {"type": "number", "minimum": 1, "description": "Line width in pixels"}
+                                                }
+                                            },
+                                            "associations": {
+                                                "type": "array",
+                                                "description": "Linked workspace items",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"type": "string", "enum": ["artifact", "asset"]},
+                                                        "id": {"type": "string", "description": "UUID of the linked item"},
+                                                        "name": {"type": "string", "description": "Display name of the linked item"},
+                                                        "kind": {"type": "string", "description": "Artifact type or asset MIME type"}
+                                                    }
+                                                }
+                                            },
+                                            "metadata": {
+                                                "type": "object",
+                                                "description": "Arbitrary JSON metadata"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "example_content": {
+            "content": {
+                "viewport": {
+                    "latitude": 20.0,
+                    "longitude": 0.0,
+                    "zoom": 2.0,
+                    "pitch": 0.0,
+                    "bearing": 0.0,
+                    "bounds": {
+                        "north": 85.0,
+                        "south": -85.0,
+                        "east": 180.0,
+                        "west": -180.0
+                    }
+                },
+                "style": "carto-voyager",
+                "layers": [],
+                "geojson": {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "id": "feat-123",
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [-0.3763, 39.4699]
+                            },
+                            "properties": {
+                                "name": "Waypoint 1",
+                                "description": "Landing zone",
+                                "style": {"color": "#1976d2"},
+                                "associations": [],
+                                "metadata": {"altitude": "100m", "restricted": True}
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "icon": "map",
+        "category": "geography"
     }
 }
 
