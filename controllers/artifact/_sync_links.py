@@ -13,6 +13,13 @@ from models.asset import Asset
 from models.artifact import Artifact
 
 
+def _safe_uuid(val: str) -> UUID | None:
+    try:
+        return UUID(str(val))
+    except (ValueError, TypeError):
+        return None
+
+
 def extract_linked_asset_ids(content: dict | None) -> set[str]:
     """Extract linked_asset_ids from artifact content."""
     if not content or not isinstance(content, dict):
@@ -65,23 +72,27 @@ def sync_artifact_asset_links(
     artifact_id_str = str(artifact.id)
 
     if added:
-        assets = db.query(Asset).filter(Asset.id.in_([UUID(aid) for aid in added])).all()
-        for asset in assets:
-            if not asset.file_meta:
-                asset.file_meta = {}
-            linked = asset.file_meta.get("linked_artifact_ids", [])
-            if artifact_id_str not in linked:
-                linked.append(artifact_id_str)
-            asset.file_meta["linked_artifact_ids"] = linked
+        valid_uuids = [uid for uid in (_safe_uuid(aid) for aid in added) if uid]
+        if valid_uuids:
+            assets = db.query(Asset).filter(Asset.id.in_(valid_uuids)).all()
+            for asset in assets:
+                if not asset.file_meta:
+                    asset.file_meta = {}
+                linked = asset.file_meta.get("linked_artifact_ids", [])
+                if artifact_id_str not in linked:
+                    linked.append(artifact_id_str)
+                asset.file_meta["linked_artifact_ids"] = linked
 
     if removed:
-        assets = db.query(Asset).filter(Asset.id.in_([UUID(aid) for aid in removed])).all()
-        for asset in assets:
-            if asset.file_meta and "linked_artifact_ids" in asset.file_meta:
-                linked = asset.file_meta["linked_artifact_ids"]
-                if artifact_id_str in linked:
-                    linked.remove(artifact_id_str)
-                asset.file_meta["linked_artifact_ids"] = linked
+        valid_uuids = [uid for uid in (_safe_uuid(aid) for aid in removed) if uid]
+        if valid_uuids:
+            assets = db.query(Asset).filter(Asset.id.in_(valid_uuids)).all()
+            for asset in assets:
+                if asset.file_meta and "linked_artifact_ids" in asset.file_meta:
+                    linked = asset.file_meta["linked_artifact_ids"]
+                    if artifact_id_str in linked:
+                        linked.remove(artifact_id_str)
+                    asset.file_meta["linked_artifact_ids"] = linked
 
     if added or removed:
         db.commit()
@@ -102,13 +113,14 @@ def remove_artifact_from_all_links(
 
     artifact_id_str = str(artifact.id)
 
-    assets = db.query(Asset).filter(Asset.id.in_([UUID(aid) for aid in linked_ids])).all()
-    for asset in assets:
-        if asset.file_meta and "linked_artifact_ids" in asset.file_meta:
-            linked = asset.file_meta["linked_artifact_ids"]
-            if artifact_id_str in linked:
-                linked.remove(artifact_id_str)
-            asset.file_meta["linked_artifact_ids"] = linked
+    valid_uuids = [uid for uid in (_safe_uuid(aid) for aid in linked_ids) if uid]
+    if valid_uuids:
+        assets = db.query(Asset).filter(Asset.id.in_(valid_uuids)).all()
+        for asset in assets:
+            if asset.file_meta and "linked_artifact_ids" in asset.file_meta:
+                linked = asset.file_meta["linked_artifact_ids"]
+                if artifact_id_str in linked:
+                    linked.remove(artifact_id_str)
+                asset.file_meta["linked_artifact_ids"] = linked
 
-    if assets:
-        db.commit()
+    # Intentionally no db.commit() here — the caller (delete_artifact) commits once at the end

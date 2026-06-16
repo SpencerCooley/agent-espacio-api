@@ -237,6 +237,7 @@ async def delete_artifact(
         )
 
     folder_id = str(artifact.folder_id) if artifact.folder_id else "00000000-0000-0000-0000-000000000001"
+    artifact_name = artifact.name
     controllers.artifact.delete_artifact(db, artifact)
 
     actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
@@ -244,14 +245,14 @@ async def delete_artifact(
         event_type="artifact.deleted",
         folder_id=folder_id,
         resource_id=str(artifact_id),
-        payload={"name": artifact.name},
+        payload={"name": artifact_name},
         actor=actor,
     )
     publish_event(
         event_type="folder_contents_changed",
         folder_id=folder_id,
         resource_id=str(artifact_id),
-        payload={"name": artifact.name},
+        payload={"name": artifact_name},
         actor=actor,
     )
 
