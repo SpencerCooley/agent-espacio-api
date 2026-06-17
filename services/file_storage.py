@@ -407,3 +407,70 @@ def get_thumbnail_path(asset_id: UUID, size: int) -> str:
 def thumbnail_exists(asset_id: UUID, size: int) -> bool:
     """Check if a thumbnail file exists on disk."""
     return os.path.exists(get_thumbnail_path(asset_id, size))
+
+
+# Range request support for streaming video/audio
+def read_file_range(storage_filename: str, start: int, end: int, chunk_size: int = 8192):
+    """
+    Generator to read a specific byte range from a file by storage filename.
+    
+    Args:
+        storage_filename: The storage filename to read
+        start: Start byte position
+        end: End byte position (inclusive)
+        chunk_size: Size of chunks to yield (default 8KB)
+    
+    Yields:
+        File chunks as bytes
+    
+    Raises:
+        FileNotFoundError: If file doesn't exist
+    """
+    file_path = get_asset_path(storage_filename)
+    
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {storage_filename}")
+    
+    remaining = end - start + 1
+    
+    with open(file_path, "rb") as f:
+        f.seek(start)
+        
+        while remaining > 0:
+            chunk = f.read(min(chunk_size, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+            yield chunk
+
+
+def read_file_range_from_path(file_path: str, start: int, end: int, chunk_size: int = 8192):
+    """
+    Generator to read a specific byte range from a file at an absolute path.
+    
+    Args:
+        file_path: Absolute path to the file
+        start: Start byte position
+        end: End byte position (inclusive)
+        chunk_size: Size of chunks to yield (default 8KB)
+    
+    Yields:
+        File chunks as bytes
+    
+    Raises:
+        FileNotFoundError: If file doesn't exist
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    remaining = end - start + 1
+    
+    with open(file_path, "rb") as f:
+        f.seek(start)
+        
+        while remaining > 0:
+            chunk = f.read(min(chunk_size, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+            yield chunk

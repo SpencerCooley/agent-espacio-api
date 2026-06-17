@@ -3,13 +3,13 @@ Public view router.
 
 Unauthenticated endpoints for viewing publicly shared content:
 - GET /public/view/{magic_id} - View a public folder, asset, or artifact
-- GET /public/assets/{magic_id}/download - Download a public asset
+- GET /public/assets/{magic_id}/download - Download/stream a public asset (supports range requests)
 """
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from dependencies.dependencies import get_db
@@ -19,7 +19,12 @@ from types_definitions.artifact import ArtifactResponse
 import controllers
 from models.asset import Asset
 from models.folder import Folder
-from services.file_storage import get_asset_path
+from services.file_storage import (
+    get_asset_path,
+    read_file_from_path,
+    read_file_range_from_path,
+)
+from utils.range_request import create_streaming_response_with_range
 from controllers.settings import get_public_theme
 
 router = APIRouter(
@@ -167,10 +172,14 @@ async def public_view(
 @router.get("/assets/{magic_id}/download")
 async def public_download_asset(
     magic_id: UUID,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
-    Download a publicly shared asset by its magic_id.
+    Download or stream a publicly shared asset by its magic_id.
+    
+    Supports HTTP Range requests for video/audio streaming, allowing players
+    to seek to arbitrary positions without downloading the entire file first.
     
     Also supports derived access for assets linked from public artifacts.
     """
@@ -203,8 +212,12 @@ async def public_download_asset(
     
     file_path = get_asset_path(asset.storage_filename)
     
-    return FileResponse(
-        path=file_path,
+    # Use streaming response with range request support for video/audio streaming
+    return create_streaming_response_with_range(
+        file_path=file_path,
+        request=request,
+        media_type=asset.mime_type,
         filename=asset.name,
-        media_type=asset.mime_type
+        read_file_func=lambda chunk_size: read_file_from_path(file_path, chunk_size),
+        read_range_func=lambda start, end, chunk_size: read_file_range_from_path(file_path, start, end, chunk_size),
     )

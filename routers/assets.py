@@ -6,11 +6,11 @@ Endpoints for asset (file) management:
 - POST /assets/upload - Upload a file
 - GET /assets/{asset_id} - Get asset metadata
 - PUT /assets/{asset_id} - Update asset (rename or move)
-- GET /assets/{asset_id}/download - Download the file
+- GET /assets/{asset_id}/download - Download/stream the file (supports range requests)
 - DELETE /assets/{asset_id} - Delete asset
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -29,12 +29,14 @@ from services.file_storage import (
     save_uploaded_file,
     read_file,
     read_file_from_path,
+    read_file_range,
     read_text_file,
     get_thumbnail_path,
     thumbnail_exists,
     THUMBNAIL_SIZES,
     MAX_FILE_SIZE,
 )
+from utils.range_request import create_streaming_response_with_range
 import controllers
 import os
 import shutil
@@ -176,12 +178,16 @@ async def get_asset(
 @router.get("/{asset_id}/download")
 async def download_asset(
     asset_id: UUID,
+    request: Request,
     size: int = None,
     current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """
-    Download the file for an asset.
+    Download or stream the file for an asset.
+    
+    Supports HTTP Range requests for video/audio streaming, allowing players
+    to seek to arbitrary positions without downloading the entire file first.
     
     - **size**: Optional thumbnail size (e.g., 256, 512). Only available for image assets.
       Falls back to original if the requested thumbnail size wasn't generated.
@@ -196,7 +202,7 @@ async def download_asset(
             detail="Asset not found"
         )
     
-    # Thumbnail download
+    # Thumbnail download (thumbnails are small, no range support needed)
     if size is not None:
         if size not in THUMBNAIL_SIZES:
             raise HTTPException(
@@ -217,7 +223,8 @@ async def download_asset(
                     read_file_from_path(get_thumbnail_path(asset_id, size)),
                     media_type="image/webp",
                     headers={
-                        "Content-Disposition": f'inline; filename="{asset_id}_thumb_{size}.webp"'
+                        "Content-Disposition": f'inline; filename="{asset_id}_thumb_{size}.webp"',
+                        "Accept-Ranges": "bytes",
                     }
                 )
             except FileNotFoundError:
@@ -226,14 +233,18 @@ async def download_asset(
                     detail="Thumbnail file not found on disk"
                 )
     
+    # Stream the original file with range request support for video/audio
+    from services.file_storage import get_asset_path
+    file_path = get_asset_path(asset.storage_filename)
+    
     try:
-        # Stream the original file
-        return StreamingResponse(
-            read_file(asset.storage_filename),
+        return create_streaming_response_with_range(
+            file_path=file_path,
+            request=request,
             media_type=asset.mime_type,
-            headers={
-                "Content-Disposition": f'inline; filename="{asset.name}"'
-            }
+            filename=asset.name,
+            read_file_func=lambda chunk_size: read_file(asset.storage_filename, chunk_size),
+            read_range_func=lambda start, end, chunk_size: read_file_range(asset.storage_filename, start, end, chunk_size),
         )
     except FileNotFoundError:
         raise HTTPException(

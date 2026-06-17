@@ -4,7 +4,7 @@ Types definitions - artifact.
 Pydantic schemas for artifact operations.
 """
 from datetime import datetime
-from typing import Any, Optional, List
+from typing import Any, Dict, Optional, List
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -74,6 +74,13 @@ class ArtifactTypeListResponse(BaseModel):
     """Response for listing all artifact type definitions."""
     types: List[ArtifactTypeResponse] = Field(..., description="List of artifact type definitions")
     total: int = Field(..., description="Total number of types")
+
+
+class PreviewArtifactResponse(BaseModel):
+    """Response for artifact preview - same format as public view."""
+    kind: str = Field(default="artifact", description="Item kind")
+    artifact: Dict[str, Any] = Field(..., description="Artifact data matching public view format")
+    public_theme: Dict[str, str] = Field(..., description="Public theme settings")
 
 
 class FolderItemResponse(BaseModel):

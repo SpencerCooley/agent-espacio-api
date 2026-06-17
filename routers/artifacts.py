@@ -10,7 +10,7 @@ Endpoints for artifact management:
 - GET /artifacts/docs - List all artifact type definitions
 - GET /artifacts/docs/{type_key} - Get specific artifact type docs
 """
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -25,10 +25,12 @@ from types_definitions.artifact import (
     DeleteArtifactResponse,
     ArtifactTypeResponse,
     ArtifactTypeListResponse,
+    PreviewArtifactResponse,
 )
 from artifact_types import get_artifact_type, list_artifact_types
 import controllers
 from services.events import publish_event
+from controllers.settings import get_public_theme
 
 router = APIRouter(
     prefix="/artifacts",
@@ -280,3 +282,41 @@ async def share_artifact(
     
     updated = controllers.artifact.share.toggle_artifact_share(db, artifact)
     return updated
+
+
+@router.get("/{artifact_id}/preview", response_model=PreviewArtifactResponse)
+async def preview_artifact(
+    artifact_id: UUID,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Get artifact data formatted for preview.
+    
+    Returns artifact in the same format as public view, but requires authentication.
+    This allows users to preview how their artifact will appear when shared publicly
+    without making it public first.
+    """
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+    
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artifact not found"
+        )
+    
+    # Get public theme for accurate preview rendering
+    public_theme = get_public_theme(db)
+    
+    return PreviewArtifactResponse(
+        kind="artifact",
+        artifact={
+            "id": str(artifact.id),
+            "name": artifact.name,
+            "type": artifact.type,
+            "description": artifact.description,
+            "content": artifact.content,
+            "public_magic_id": str(artifact.public_magic_id) if artifact.public_magic_id else str(artifact.id),
+        },
+        public_theme=public_theme,
+    )
