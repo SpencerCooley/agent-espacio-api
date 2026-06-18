@@ -386,6 +386,100 @@ def generate_thumbnails(asset_id: UUID, source_path: str) -> tuple[dict, dict]:
         return {}, {}
 
 
+def generate_video_thumbnail(asset_id: UUID, source_path: str) -> dict:
+    """
+    Generate a thumbnail for a video asset by extracting a frame with ffmpeg.
+
+    Args:
+        asset_id: The asset UUID (used for naming thumbnails)
+        source_path: Path to the original video file
+
+    Returns:
+        dict mapping size -> {w, h, size_bytes}
+
+    Only generates thumbnails if the original video is larger than the target size.
+    """
+    import subprocess
+    import json
+
+    # Check if ffmpeg is available
+    try:
+        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return {}
+
+    # Get video duration and dimensions
+    try:
+        probe = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=duration,width,height",
+                "-of", "json",
+                source_path,
+            ],
+            capture_output=True, text=True, check=True, timeout=30
+        )
+        info = json.loads(probe.stdout)
+        stream = info.get("streams", [{}])[0]
+        duration = float(stream.get("duration", 0))
+        video_width = int(stream.get("width", 0))
+        video_height = int(stream.get("height", 0))
+    except Exception:
+        return {}
+
+    # Choose a frame at 1 second or 10% of the video duration
+    seek_time = min(1.0, duration * 0.1) if duration > 0 else 0
+
+    thumbnails = {}
+
+    for size in THUMBNAIL_SIZES:
+        # Skip if video is smaller than target size (never upscale)
+        if video_width <= size and video_height <= size:
+            continue
+
+        # Scale to fit within size x size while maintaining aspect ratio
+        scale = f"scale='if(gt(iw,ih),{size},-1)':'if(gt(iw,ih),-1,{size})'"
+
+        thumb_filename = f"{asset_id}_thumb_{size}.webp"
+        thumb_path = os.path.join(ASSETS_DIR, thumb_filename)
+
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg", "-y",
+                    "-ss", str(seek_time),
+                    "-i", source_path,
+                    "-frames:v", "1",
+                    "-vf", scale,
+                    "-q:v", "2",
+                    thumb_path,
+                ],
+                capture_output=True, check=True, timeout=60
+            )
+
+            if os.path.exists(thumb_path):
+                thumb_size = os.path.getsize(thumb_path)
+                thumb_w, thumb_h = video_width, video_height
+                # Get actual thumbnail dimensions with PIL
+                try:
+                    from PIL import Image
+                    with Image.open(thumb_path) as thumb_img:
+                        thumb_w, thumb_h = thumb_img.size
+                except Exception:
+                    pass
+
+                thumbnails[str(size)] = {
+                    "w": thumb_w,
+                    "h": thumb_h,
+                    "size_bytes": thumb_size,
+                }
+        except Exception:
+            pass  # Skip this size if extraction fails
+
+    return thumbnails
+
+
 def delete_thumbnails(asset_id: UUID):
     """Delete all thumbnail files for a given asset ID."""
     for size in THUMBNAIL_SIZES:

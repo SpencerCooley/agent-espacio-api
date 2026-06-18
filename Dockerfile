@@ -8,7 +8,8 @@ RUN apt-get update && \
         postgresql-client \
         libpq-dev \
         gcc \
-        python3-dev && \
+        python3-dev \
+        ffmpeg && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

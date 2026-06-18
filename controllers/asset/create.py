@@ -16,6 +16,7 @@ from services.file_storage import (
     save_uploaded_file,
     validate_file_size,
     generate_thumbnails,
+    generate_video_thumbnail,
     read_text_file,
 )
 
@@ -81,6 +82,16 @@ def create_asset(
                 file_meta.update(image_info)
             if thumbnails:
                 file_meta["thumbnails"] = thumbnails
+
+    # Generate thumbnail for video files
+    if mime_type.startswith("video/"):
+        video_thumbnails = generate_video_thumbnail(asset_id, saved_path)
+        if video_thumbnails:
+            if file_meta is None:
+                file_meta = {}
+            if "thumbnails" not in file_meta:
+                file_meta["thumbnails"] = {}
+            file_meta["thumbnails"].update(video_thumbnails)
 
     # Extract preview for markdown files
     if mime_type in ("text/markdown", "text/x-markdown"):

@@ -209,13 +209,19 @@ async def download_asset(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid thumbnail size. Supported sizes: {THUMBNAIL_SIZES}"
             )
-        if not asset.is_image:
+        if not asset.is_image and not asset.mime_type.startswith("video/"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Thumbnails are only available for image assets"
+                detail="Thumbnails are only available for image and video assets"
             )
         if not thumbnail_exists(asset_id, size):
-            # Fall back to original if thumbnail wasn't generated (e.g., image was smaller than size)
+            # Videos without a generated thumbnail should not fall back to the original file
+            if asset.mime_type.startswith("video/"):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Video thumbnail not found"
+                )
+            # Fall back to original for images (small images may not have thumbnails)
             pass
         else:
             try:
