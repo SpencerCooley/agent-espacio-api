@@ -96,6 +96,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  POST /artifacts with body:\n"
             '  { "name": "...", "type": "note", "folder_id": "...",\n'
             '    "content": { "type": "doc", "content": [...], "linked_asset_ids": [...] } }\n\n'
+            "IMPORTANT: Do NOT include a 'description' field. Notes do not have descriptions.\n\n"
             "WHEN UPDATING:\n"
             "  PUT /artifacts/{id} with partial content. "
             "The editor uses auto-save (1.5s debounce) so batch changes before saving."
