@@ -49,6 +49,15 @@ def extract_linked_asset_ids(content: dict | None) -> set[str]:
                                     if asset_id:
                                         ids.add(str(asset_id))
     
+    # Galleries: extract from items array
+    items = content.get("items", [])
+    if isinstance(items, list):
+        for item in items:
+            if isinstance(item, dict):
+                asset_id = item.get("asset_id")
+                if asset_id:
+                    ids.add(str(asset_id))
+    
     return ids
 
 

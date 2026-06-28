@@ -200,37 +200,47 @@ def is_asset_linked_by_public_artifact(db: Session, asset_id: UUID) -> bool:
             linked_ids = content.get('linked_asset_ids', [])
             if asset_id_str in linked_ids:
                 return True
-            
+
             # Also check for data-asset-id in content nodes
             doc_content = content.get('content', {})
             if isinstance(doc_content, dict):
                 nodes = doc_content.get('content', [])
                 if _scan_nodes_for_asset_id(nodes, asset_id_str):
                     return True
-    
+
+            # Also check gallery items
+            gallery_items = content.get('items', [])
+            if _scan_gallery_items_for_asset_id(gallery_items, asset_id_str):
+                return True
+
     # Also check artifacts in public folders
     # First get all public folders
     public_folders = db.query(Folder).filter(Folder.is_public == True).all()
     public_folder_ids = [f.id for f in public_folders]
-    
+
     if public_folder_ids:
         folder_artifacts = db.query(Artifact).filter(
             Artifact.folder_id.in_(public_folder_ids)
         ).all()
-        
+
         for artifact in folder_artifacts:
             content = artifact.content
             if content and isinstance(content, dict):
                 linked_ids = content.get('linked_asset_ids', [])
                 if asset_id_str in linked_ids:
                     return True
-                
+
                 doc_content = content.get('content', {})
                 if isinstance(doc_content, dict):
                     nodes = doc_content.get('content', [])
                     if _scan_nodes_for_asset_id(nodes, asset_id_str):
                         return True
-    
+
+                # Also check gallery items
+                gallery_items = content.get('items', [])
+                if _scan_gallery_items_for_asset_id(gallery_items, asset_id_str):
+                    return True
+
     return False
 
 
@@ -262,6 +272,27 @@ def _scan_nodes_for_asset_id(nodes, asset_id_str):
         if children and _scan_nodes_for_asset_id(children, asset_id_str):
             return True
     
+    return False
+
+
+def _scan_gallery_items_for_asset_id(items, asset_id_str):
+    """
+    Scan gallery items for an asset_id match.
+
+    Args:
+        items: List of gallery item dicts with 'asset_id' keys
+        asset_id_str: Asset ID string to look for
+
+    Returns:
+        True if found, False otherwise
+    """
+    if not isinstance(items, list):
+        return False
+
+    for item in items:
+        if isinstance(item, dict) and item.get('asset_id') == asset_id_str:
+            return True
+
     return False
 
 

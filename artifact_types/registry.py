@@ -842,6 +842,124 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
         },
         "icon": "map",
         "category": "geography"
+    },
+    "gallery": {
+        "key": "gallery",
+        "name": "Gallery",
+        "description": "A curated collection of image assets with captions, drag-and-drop reordering, and multiple public layout modes.",
+        "ai_instructions": (
+            "Use this artifact to create curated image collections (galleries). "
+            "Galleries reference existing image assets and allow captions per image, "
+            "reordering, and choosing a public presentation layout.\n\n"
+            "WHEN TO USE:\n"
+            "  - Photo albums, portfolios, product showcases\n"
+            "  - Any curated collection of existing workspace images\n"
+            "  - Collections that need a specific public presentation style\n\n"
+            "WHEN NOT TO USE:\n"
+            "  - A single image (use an image asset instead)\n"
+            "  - Unstructured image dumps (use a folder instead)\n"
+            "  - Images with heavy annotation needs (use note artifacts for inline commentary)\n\n"
+            "TOP-LEVEL STRUCTURE:\n"
+            "{\n"
+            '  "layout": "default",   // Public presentation: default | carousel | masonry\n'
+            '  "items": [             // Ordered array of gallery images\n'
+            '    { "asset_id": "uuid", "caption": "optional text" }\n'
+            '  ],\n'
+            '  "linked_asset_ids": ["uuid"]  // Auto-managed, mirrors all asset_id values\n'
+            "}\n\n"
+            "LAYOUT MODES:\n"
+            "  - default: Responsive grid of images with captions below each.\n"
+            "  - carousel: Single large image with prev/next navigation and a thumbnail reel.\n"
+            "  - masonry: Pinterest-style column layout with lightbox modal on click.\n\n"
+            "ITEMS:\n"
+            "  Each item references an existing image asset by UUID. The caption is optional.\n"
+            "  Items are ordered by their position in the array. Reordering changes the array order.\n\n"
+            "LINKED ASSET IDS:\n"
+            "  The editor automatically populates 'linked_asset_ids' at the top level by scanning\n"
+            "  all item.asset_id values. This list must be kept in sync with the items array.\n"
+            "  The backend updates each asset's file_meta.linked_artifact_ids bidirectionally.\n\n"
+            "UPLOADING NEW IMAGES:\n"
+            "  New images can be uploaded directly from the gallery editor. They are saved as\n"
+            "  assets in the same folder as the gallery artifact. After upload, they are\n"
+            "  automatically appended to the gallery items array.\n\n"
+            "ADDING EXISTING IMAGES:\n"
+            "  Use the asset picker to search and select existing image assets from anywhere\n"
+            "  in the workspace. The asset's UUID is added to the items array.\n\n"
+            "WHEN CREATING A GALLERY VIA API:\n"
+            "  POST /artifacts with body:\n"
+            '  { "name": "Summer Photos", "type": "gallery", "folder_id": "...",\n'
+            '    "description": "A collection of summer vacation photos.",\n'
+            '    "content": { "layout": "default", "items": [], "linked_asset_ids": [] } }\n\n'
+            "WHEN UPDATING:\n"
+            "  PUT /artifacts/{id} with partial content. The editor auto-saves (1.5s debounce).\n\n"
+            "COMMON PITFALLS:\n"
+            "  1. Forgetting to include 'linked_asset_ids' — it should always match item.asset_ids.\n"
+            "  2. Referencing a deleted asset. If an asset is deleted, its item becomes a broken link.\n"
+            "  3. Using non-image assets. Only image assets (mime_type starts with 'image/') render correctly.\n"
+            "  4. Uploading images to the wrong folder. Gallery uploads go to the gallery's folder_id."
+        ),
+        "content_schema": {
+            "type": "object",
+            "required": ["layout", "items"],
+            "properties": {
+                "layout": {
+                    "type": "string",
+                    "enum": ["default", "carousel", "masonry"],
+                    "default": "default",
+                    "description": "Public presentation layout for the gallery"
+                },
+                "items": {
+                    "type": "array",
+                    "description": "Ordered array of gallery images",
+                    "items": {
+                        "type": "object",
+                        "required": ["asset_id"],
+                        "properties": {
+                            "asset_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "description": "UUID of the referenced image asset"
+                            },
+                            "caption": {
+                                "type": "string",
+                                "description": "Optional caption text for this image"
+                            }
+                        }
+                    }
+                },
+                "linked_asset_ids": {
+                    "type": "array",
+                    "items": {"type": "string", "format": "uuid"},
+                    "description": "UUIDs of all assets referenced in items (auto-managed)"
+                }
+            }
+        },
+        "example_content": {
+            "content": {
+                "layout": "masonry",
+                "items": [
+                    {
+                        "asset_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                        "caption": "Sunset over the ocean"
+                    },
+                    {
+                        "asset_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                        "caption": "Mountain trail at dawn"
+                    },
+                    {
+                        "asset_id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+                        "caption": "City skyline at night"
+                    }
+                ],
+                "linked_asset_ids": [
+                    "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                    "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                    "c3d4e5f6-a7b8-9012-cdef-123456789012"
+                ]
+            }
+        },
+        "icon": "photo_library",
+        "category": "media"
     }
 }
 
