@@ -19,7 +19,7 @@ router = APIRouter(
 
 
 class PublicThemeUpdate(BaseModel):
-    name: str
+    theme_id: str
     mode: str
 
 
@@ -29,18 +29,18 @@ async def get_settings(
 ):
     """
     Get all global settings.
-    
+
     No authentication required for reading public_theme (needed by public pages).
     """
     settings = get_all_settings(db)
-    
-    # Ensure public_theme always has a default
+
+    # Ensure public_theme always has a default shape
     if 'public_theme' not in settings:
         settings['public_theme'] = {
-            'name': 'hackerBuzz',
+            'theme_id': '',
             'mode': 'dark',
         }
-    
+
     return {"settings": settings}
 
 
@@ -50,7 +50,7 @@ async def get_public_theme_endpoint(
 ):
     """
     Get the public theme.
-    
+
     No authentication required.
     """
     theme = get_public_theme(db)
@@ -65,7 +65,7 @@ async def update_public_theme(
 ):
     """
     Update the public theme.
-    
+
     Any authenticated user can update this.
     """
     if data.mode not in ('light', 'dark'):
@@ -73,6 +73,6 @@ async def update_public_theme(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="mode must be 'light' or 'dark'"
         )
-    
-    setting = set_public_theme(db, data.name, data.mode)
+
+    setting = set_public_theme(db, data.theme_id, data.mode)
     return {"public_theme": setting.value}

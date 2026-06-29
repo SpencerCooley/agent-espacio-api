@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import ai_instructions, health, auth, users, api_keys, folders, assets, artifacts, public, settings, ws
+from routers import ai_instructions, health, auth, users, api_keys, folders, assets, artifacts, public, settings, themes, ws
 from services import events
 import routers.ws as ws_router
 
@@ -33,6 +33,7 @@ app.include_router(assets.router)
 app.include_router(artifacts.router)
 app.include_router(public.router)
 app.include_router(settings.router)
+app.include_router(themes.router)
 app.include_router(ws.router)
 
 # Start event listener on startup

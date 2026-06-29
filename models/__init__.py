@@ -20,6 +20,7 @@ from models.reset_token import ResetToken
 from models.folder import Folder
 from models.asset import Asset
 from models.artifact import Artifact
+from models.theme import Theme
 
 __all__ = [
     "Base",
@@ -31,4 +32,5 @@ __all__ = [
     "Folder",
     "Asset",
     "Artifact",
+    "Theme",
 ]

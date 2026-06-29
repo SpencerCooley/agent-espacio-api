@@ -53,19 +53,18 @@ def get_all_settings(db: Session) -> Dict[str, Any]:
 def get_public_theme(db: Session) -> Dict[str, str]:
     """
     Get the public theme setting.
-    
+
     Returns:
-        { name: str, mode: 'light' | 'dark' }
-        Defaults to hackerBuzz dark if not set.
+    { theme_id: str, mode: 'light' | 'dark' }
     """
     value = get_setting(db, 'public_theme')
     if value and isinstance(value, dict):
         return {
-            'name': value.get('name', 'hackerBuzz'),
+            'theme_id': value.get('theme_id', ''),
             'mode': value.get('mode', 'dark'),
         }
     return {
-        'name': 'hackerBuzz',
+        'theme_id': '',
         'mode': 'dark',
     }
 
@@ -94,19 +93,19 @@ def set_setting(db: Session, key: str, value: Any) -> Setting:
     return setting
 
 
-def set_public_theme(db: Session, name: str, mode: str) -> Setting:
+def set_public_theme(db: Session, theme_id: str, mode: str) -> Setting:
     """
     Set the public theme.
-    
+
     Args:
         db: Database session
-        name: Theme name (e.g., 'hackerBuzz')
+        theme_id: Theme UUID
         mode: 'light' or 'dark'
-        
+
     Returns:
         The updated Setting object.
     """
     return set_setting(db, 'public_theme', {
-        'name': name,
+        'theme_id': theme_id,
         'mode': mode,
     })

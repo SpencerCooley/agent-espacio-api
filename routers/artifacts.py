@@ -26,6 +26,8 @@ from types_definitions.artifact import (
     ArtifactTypeResponse,
     ArtifactTypeListResponse,
     PreviewArtifactResponse,
+    CompositionResponse,
+    CompositionSectionResponse,
 )
 from artifact_types import get_artifact_type, list_artifact_types
 import controllers
@@ -306,8 +308,17 @@ async def preview_artifact(
         )
     
     # Get public theme for accurate preview rendering
-    public_theme = get_public_theme(db)
-    
+    public_theme_pref = get_public_theme(db)
+    from controllers.themes import get_public_theme_definition
+    public_theme_definition = get_public_theme_definition(
+        db, public_theme_pref['theme_id'], public_theme_pref['mode']
+    ) if public_theme_pref['theme_id'] else None
+    public_theme_response = {
+        "theme_id": public_theme_pref['theme_id'],
+        "mode": public_theme_pref['mode'],
+        "definition": public_theme_definition,
+    }
+
     return PreviewArtifactResponse(
         kind="artifact",
         artifact={
@@ -318,5 +329,46 @@ async def preview_artifact(
             "content": artifact.content,
             "public_magic_id": str(artifact.public_magic_id) if artifact.public_magic_id else str(artifact.id),
         },
-        public_theme=public_theme,
+        public_theme=public_theme_response,
+    )
+
+
+@router.get("/{artifact_id}/composition", response_model=CompositionResponse)
+async def get_composition(
+    artifact_id: UUID,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Resolve a composer artifact with all referenced sub-artifacts.
+
+    Returns the composer artifact and its sections, with each section's
+    referenced artifact fully resolved in a single batch query.
+    """
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artifact not found"
+        )
+
+    if artifact.type != "composer":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Artifact is not a composition"
+        )
+
+    result = controllers.artifact.resolve_composition(db, artifact)
+
+    return CompositionResponse(
+        composer=result["composer"],
+        sections=[
+            CompositionSectionResponse(
+                artifact=s["item"],
+                caption=s["caption"],
+                artifact_id=s["artifact_id"],
+            )
+            for s in result["sections"]
+        ],
     )

@@ -80,7 +80,20 @@ class PreviewArtifactResponse(BaseModel):
     """Response for artifact preview - same format as public view."""
     kind: str = Field(default="artifact", description="Item kind")
     artifact: Dict[str, Any] = Field(..., description="Artifact data matching public view format")
-    public_theme: Dict[str, str] = Field(..., description="Public theme settings")
+    public_theme: Dict[str, Any] = Field(..., description="Public theme settings with resolved definition")
+
+
+class CompositionSectionResponse(BaseModel):
+    """A single section within a composition, with resolved artifact."""
+    artifact: Optional[Dict[str, Any]] = Field(None, description="Resolved artifact data (null if not found or not public)")
+    caption: Optional[str] = Field(None, description="Optional caption text")
+    artifact_id: Optional[str] = Field(None, description="Referenced artifact UUID")
+
+
+class CompositionResponse(BaseModel):
+    """Response for resolving a composer artifact with all sub-artifacts."""
+    composer: Dict[str, Any] = Field(..., description="The composer artifact data")
+    sections: List[CompositionSectionResponse] = Field(..., description="Resolved sections in order")
 
 
 class FolderItemResponse(BaseModel):

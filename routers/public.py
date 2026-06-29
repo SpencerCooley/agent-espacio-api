@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from dependencies.dependencies import get_db
 from types_definitions.folder import FolderResponse, FolderContentsResponse
 from types_definitions.asset import AssetResponse
-from types_definitions.artifact import ArtifactResponse
+from types_definitions.artifact import ArtifactResponse, CompositionResponse, CompositionSectionResponse
 import controllers
 from models.asset import Asset
 from models.folder import Folder
@@ -29,6 +29,7 @@ from services.file_storage import (
 )
 from utils.range_request import create_streaming_response_with_range
 from controllers.settings import get_public_theme
+from controllers.themes import get_public_theme_definition
 
 router = APIRouter(
     prefix="/public",
@@ -59,9 +60,20 @@ async def public_view(
             detail="Public item not found"
         )
     
+    # Resolve public theme with full definition
+    public_theme_pref = get_public_theme(db)
+    public_theme_definition = get_public_theme_definition(
+        db, public_theme_pref['theme_id'], public_theme_pref['mode']
+    ) if public_theme_pref['theme_id'] else None
+    public_theme_response = {
+        "theme_id": public_theme_pref['theme_id'],
+        "mode": public_theme_pref['mode'],
+        "definition": public_theme_definition,
+    }
+
     if kind == 'folder':
         subfolders, assets, artifacts = controllers.public.get_public_folder_contents(db, item)
-        
+
         # Build ancestor chain for breadcrumb
         ancestors = []
         current = item
@@ -76,7 +88,7 @@ async def public_view(
                 "public_magic_id": str(parent.public_magic_id) if parent.public_magic_id else None,
             })
             current = parent
-        
+
         # Convert to response schemas
         folder_items = []
         for f in subfolders:
@@ -112,7 +124,7 @@ async def public_view(
                 "created_at": art.created_at,
                 "updated_at": art.updated_at,
             })
-        
+
         return {
             "kind": "folder",
             "folder": {
@@ -128,9 +140,9 @@ async def public_view(
             "ancestors": ancestors,
             "items": folder_items,
             "total_items": len(folder_items),
-            "public_theme": get_public_theme(db)
+            "public_theme": public_theme_response,
         }
-    
+
     elif kind == 'asset':
         return {
             "kind": "asset",
@@ -146,9 +158,9 @@ async def public_view(
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
             },
-            "public_theme": get_public_theme(db)
+            "public_theme": public_theme_response,
         }
-    
+
     elif kind == 'artifact':
         return {
             "kind": "artifact",
@@ -163,7 +175,7 @@ async def public_view(
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
             },
-            "public_theme": get_public_theme(db)
+            "public_theme": public_theme_response,
         }
     
     raise HTTPException(
@@ -264,3 +276,57 @@ async def public_download_asset(
         read_file_func=lambda chunk_size: read_file_from_path(file_path, chunk_size),
         read_range_func=lambda start, end, chunk_size: read_file_range_from_path(file_path, start, end, chunk_size),
     )
+
+
+@router.get("/composition/{magic_id}")
+async def public_composition(
+    magic_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    View a public composer artifact with all resolved sub-artifacts.
+
+    Only sub-artifacts that are publicly accessible are included.
+    Private sub-artifacts appear as null in their section.
+    """
+    item, kind = controllers.public.resolve_public_item(db, magic_id)
+
+    if not item or kind != 'artifact':
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Public composition not found"
+        )
+
+    if item.type != "composer":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Artifact is not a composition"
+        )
+
+    # Resolve public theme
+    public_theme_pref = get_public_theme(db)
+    public_theme_definition = get_public_theme_definition(
+        db, public_theme_pref['theme_id'], public_theme_pref['mode']
+    ) if public_theme_pref['theme_id'] else None
+    public_theme_response = {
+        "theme_id": public_theme_pref['theme_id'],
+        "mode": public_theme_pref['mode'],
+        "definition": public_theme_definition,
+    }
+
+    # Resolve composition (filters non-public sub-artifacts)
+    result = controllers.artifact.resolve_public_composition(db, item)
+
+    return {
+        "kind": "composition",
+        "composer": result["composer"],
+        "sections": [
+            {
+                "artifact": s["item"],
+                "caption": s["caption"],
+                "artifact_id": s["artifact_id"],
+            }
+            for s in result["sections"]
+        ],
+        "public_theme": public_theme_response,
+    }

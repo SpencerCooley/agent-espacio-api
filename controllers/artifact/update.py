@@ -57,6 +57,11 @@ def update_artifact(
     if content is not None:
         artifact.content = content
 
+    # Validate composer content (no nested composers)
+    if artifact.type == "composer":
+        from .validate import validate_no_nested_composers
+        validate_no_nested_composers(db, artifact.content)
+
     # Move to new folder if provided
     if folder_id is not None and folder_id != artifact.folder_id:
         folder = db.query(Folder).filter(Folder.id == folder_id).first()

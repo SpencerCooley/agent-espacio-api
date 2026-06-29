@@ -152,7 +152,8 @@ def is_artifact_public(db: Session, artifact: Artifact) -> bool:
     
     An artifact is public if:
     1. It is directly marked as public, OR
-    2. Its parent folder or any ancestor is public
+    2. Its parent folder or any ancestor is public, OR
+    3. It is referenced by a public composition (derived access)
     
     Args:
         db: Database session
@@ -170,6 +171,63 @@ def is_artifact_public(db: Session, artifact: Artifact) -> bool:
         folder = db.query(Folder).filter(Folder.id == artifact.folder_id).first()
         if folder and _is_folder_or_ancestor_public(db, folder):
             return True
+    
+    # Derived access: referenced by a public composition
+    if is_artifact_referenced_by_public_composer(db, artifact.id):
+        return True
+    
+    return False
+
+
+def is_artifact_referenced_by_public_composer(db: Session, artifact_id: UUID) -> bool:
+    """
+    Check if an artifact is referenced by any public composition.
+    
+    Looks through all public composer artifacts' content for sections
+    with artifact_id matching the given artifact_id.
+    
+    Args:
+        db: Database session
+        artifact_id: Artifact UUID to check
+        
+    Returns:
+        True if referenced by a public composer, False otherwise
+    """
+    artifact_id_str = str(artifact_id)
+    
+    # Query all public composers
+    public_composers = db.query(Artifact).filter(
+        Artifact.is_public == True,
+        Artifact.type == "composer"
+    ).all()
+    
+    for composer in public_composers:
+        content = composer.content
+        if content and isinstance(content, dict):
+            sections = content.get("sections", [])
+            if isinstance(sections, list):
+                for section in sections:
+                    if isinstance(section, dict) and section.get("artifact_id") == artifact_id_str:
+                        return True
+    
+    # Also check composers in public folders
+    public_folders = db.query(Folder).filter(Folder.is_public == True).all()
+    public_folder_ids = [f.id for f in public_folders]
+    
+    if public_folder_ids:
+        folder_composers = db.query(Artifact).filter(
+            Artifact.folder_id.in_(public_folder_ids),
+            Artifact.type == "composer"
+        ).all()
+        
+        for composer in folder_composers:
+            content = composer.content
+            if content and isinstance(content, dict):
+                sections = content.get("sections", [])
+                if isinstance(sections, list):
+                    for section in sections:
+                        if isinstance(section, dict) and section.get("artifact_id") == artifact_id_str:
+                            return True
     
     return False
 
@@ -213,6 +271,11 @@ def is_asset_linked_by_public_artifact(db: Session, asset_id: UUID) -> bool:
             if _scan_gallery_items_for_asset_id(gallery_items, asset_id_str):
                 return True
 
+            # Also check composer sections
+            sections = content.get('sections', [])
+            if _scan_composer_sections_for_asset_id(sections, asset_id_str):
+                return True
+
     # Also check artifacts in public folders
     # First get all public folders
     public_folders = db.query(Folder).filter(Folder.is_public == True).all()
@@ -239,6 +302,11 @@ def is_asset_linked_by_public_artifact(db: Session, asset_id: UUID) -> bool:
                 # Also check gallery items
                 gallery_items = content.get('items', [])
                 if _scan_gallery_items_for_asset_id(gallery_items, asset_id_str):
+                    return True
+
+                # Also check composer sections
+                sections = content.get('sections', [])
+                if _scan_composer_sections_for_asset_id(sections, asset_id_str):
                     return True
 
     return False
@@ -291,6 +359,27 @@ def _scan_gallery_items_for_asset_id(items, asset_id_str):
 
     for item in items:
         if isinstance(item, dict) and item.get('asset_id') == asset_id_str:
+            return True
+
+    return False
+
+
+def _scan_composer_sections_for_asset_id(sections, asset_id_str):
+    """
+    Scan composer sections for an artifact_id matching an asset.
+
+    Args:
+        sections: List of composer section dicts with 'artifact_id' keys
+        asset_id_str: Asset ID string to look for
+
+    Returns:
+        True if found, False otherwise
+    """
+    if not isinstance(sections, list):
+        return False
+
+    for section in sections:
+        if isinstance(section, dict) and section.get('artifact_id') == asset_id_str:
             return True
 
     return False

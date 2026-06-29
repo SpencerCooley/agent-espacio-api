@@ -131,8 +131,67 @@ GET ${AGENT_ESPACIO_API}/artifacts/docs/{type_key}
 
 Currently supported:
 - **note** — Rich text document using TipTap/ProseMirror JSON format. Supports bold, italic, underline, strikethrough, text color, highlight, lists, headings, images, tables, and more.
+- **workflow** — Visual process builder with directed graphs of nodes (actions, AI steps, human approvals, decisions, code, data references).
+- **map** — Interactive geospatial map with viewport state, GeoJSON features (points, lines, polygons), and linked workspace items.
+- **gallery** — Curated image collection with captions, drag-and-drop reordering, and multiple public layout modes (grid, carousel, masonry).
+- **composer** — Curated story or collection that combines multiple artifacts in order. Like a blog post made of other artifacts. Cannot nest other composers.
 
-## 6. Important Rules
+## 6. Creating Themes
+
+Themes define the visual appearance of the workspace. They are stored in the database and drive both the admin panel and public page styling. Each theme has a `light_definition` and `dark_definition` containing full MUI theme configurations (palette, typography, component overrides).
+
+### Discover Existing Themes
+
+The best way to learn is to look at what already exists:
+
+```
+GET ${AGENT_ESPACIO_API}/themes
+GET ${AGENT_ESPACIO_API}/themes/{theme_id}
+```
+
+Study the JSON structure of existing themes — especially their `light_definition` and `dark_definition` objects.
+
+### Create a New Theme
+
+```
+POST ${AGENT_ESPACIO_API}/themes
+X-Agent-Key: ${AGENT_ESPACIO_KEY}
+Content-Type: application/json
+```
+
+```json
+{
+  "name": "Your Theme Name",
+  "light_definition": {
+    "palette": { "mode": "light", "primary": {...}, "background": {...} },
+    "typography": { "fontFamily": "...", "h1": {...} },
+    "components": { "MuiButton": {...}, "MuiCard": {...} }
+  },
+  "dark_definition": {
+    "palette": { "mode": "dark", "primary": {...}, "background": {...} },
+    "typography": { "fontFamily": "...", "h1": {...} },
+    "components": { "MuiButton": {...}, "MuiCard": {...} }
+  }
+}
+```
+
+### What Makes a Good Theme
+
+- **Consistent palette** — Define `primary`, `secondary`, `background`, `text`, and feedback colors (`error`, `warning`, `success`, `info`)
+- **Typography matters** — Choose a distinctive `fontFamily`. Use `letterSpacing`, `fontWeight`, and `lineHeight` to create character. Headers should feel intentional.
+- **Component overrides** — The magic is in `components.MuiButton`, `MuiCard`, `MuiTextField`, `MuiChip`, `MuiPaper`, `MuiAppBar`, `MuiDialog`, `MuiTooltip`, `MuiAvatar`, `MuiDivider`, `MuiListItem`, `MuiSwitch`, `MuiSlider`. These control how every UI element looks and behaves.
+- **Animations & micro-interactions** — Use `transition` with custom `cubic-bezier` easing curves. Buttons that lift, cards that glow, inputs that pulse — these create personality.
+- **Always create BOTH light and dark** — Every theme must have a meaningful `light_definition` and `dark_definition`. Do not copy the dark palette into the light slot. Light mode should use light backgrounds, dark text, and softer shadows. Dark mode should use dark backgrounds, light text, and neon/glow effects.
+- **Reference MUI's theme structure** — The JSON mirrors Material-UI's `ThemeOptions` object. Any valid MUI theme property works inside `light_definition` and `dark_definition`.
+
+### Update or Delete Themes
+
+```
+PUT    ${AGENT_ESPACIO_API}/themes/{theme_id}
+DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
+```
+
+## 7. Important Rules
 
 - Folder names are not unique (like a normal filesystem)
 - Deleting a folder recursively deletes ALL contents inside it (subfolders, assets, artifacts)
@@ -142,7 +201,7 @@ Currently supported:
 - Folder creators can be null (root folder, API-key created folders)
 - Items in a folder are always sorted alphabetically by name
 
-## 7. Common Workflows
+## 8. Common Workflows
 
 ### Create a project with a note
 1. Create folder: POST /folders {"name": "Project Alpha", "parent_id": "..."}
@@ -155,7 +214,7 @@ Currently supported:
 1. POST /folders {"name": "2024", "parent_id": "root_id"}
 2. POST /folders {"name": "Q1", "parent_id": "2024_folder_id"}
 
-## 8. API Endpoints Reference
+## 9. API Endpoints Reference
 
 ### Folders
 - GET /folders — List folder tree
@@ -180,6 +239,13 @@ Currently supported:
 - DELETE /artifacts/{id} — Delete artifact
 - GET /artifacts/docs — List all artifact type definitions
 - GET /artifacts/docs/{type_key} — Get specific artifact type docs
+
+### Themes
+- GET /themes — List all themes (public, no auth)
+- GET /themes/{id} — Get a single theme (public, no auth)
+- POST /themes — Create theme (auth required)
+- PUT /themes/{id} — Update theme (auth required)
+- DELETE /themes/{id} — Delete theme (auth required)
 
 ---
 

@@ -43,6 +43,11 @@ def create_artifact(
     if not folder:
         raise ValueError("Parent folder not found")
 
+    # Validate composer content (no nested composers)
+    if type == "composer":
+        from .validate import validate_no_nested_composers
+        validate_no_nested_composers(db, content)
+
     artifact = Artifact(
         name=name,
         type=type,

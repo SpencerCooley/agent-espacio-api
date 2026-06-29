@@ -960,6 +960,92 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
         },
         "icon": "photo_library",
         "category": "media"
+    },
+    "composer": {
+        "key": "composer",
+        "name": "Composition",
+        "description": "A curated story or collection of artifacts arranged in order. Like a blog post made of other artifacts.",
+        "ai_instructions": (
+            "Use this artifact to create curated stories, blog posts, or collections that combine multiple artifacts into a single narrative.\n\n"
+            "WHEN TO USE:\n"
+            "  - Writing a travel story that includes notes, maps, and photo galleries\n"
+            "  - Creating a project report with workflows, notes, and data visualizations\n"
+            "  - Building a portfolio that showcases different artifact types together\n"
+            "  - Any content that tells a story across multiple artifact types\n\n"
+            "WHEN NOT TO USE:\n"
+            "  - Simple single-artifact content (use the artifact's own type directly)\n"
+            "  - Folder organization (use folders for that)\n"
+            "  - Linking to another composition (use a note with a hyperlink instead)\n\n"
+            "TOP-LEVEL STRUCTURE:\n"
+            "{\n"
+            '  "sections": [\n'
+            '    { "artifact_id": "uuid", "caption": "optional text" }\n'
+            '  ]\n'
+            "}\n\n"
+            "SECTIONS:\n"
+            "  Each section references an existing artifact by UUID. The caption is optional text displayed under the rendered section.\n"
+            "  Sections are rendered in order. Each artifact type has its own composer view:\n"
+            "    - note: Full content rendered inline\n"
+            "    - map: Static map thumbnail with bounding box, non-interactive, 'View full map' button\n"
+            "    - gallery: 3 image thumbnails with count badge, 'View gallery' button\n"
+            "    - workflow: Graph preview (pan-only, no interaction), 'View workflow' button\n\n"
+            "IMPORTANT RULES:\n"
+            "  1. A composition CANNOT reference another composition. The API will reject nested composers.\n"
+            "  2. If a referenced artifact is deleted, the section shows a placeholder.\n"
+            "  3. Sub-artifacts referenced by a public composition are visible within that composition even if not individually public.\n\n"
+            "WHEN CREATING A COMPOSITION VIA API:\n"
+            '  POST /artifacts with body:\n'
+            '  { "name": "My Story", "type": "composer", "folder_id": "...",\n'
+            '    "content": { "sections": [{ "artifact_id": "...", "caption": "A beautiful day" }] } }\n\n'
+            "WHEN UPDATING:\n"
+            "  PUT /artifacts/{id} with updated sections array.\n"
+            "  The editor auto-saves (1.5s debounce)."
+        ),
+        "content_schema": {
+            "type": "object",
+            "required": ["sections"],
+            "properties": {
+                "sections": {
+                    "type": "array",
+                    "description": "Ordered array of artifact references",
+                    "items": {
+                        "type": "object",
+                        "required": ["artifact_id"],
+                        "properties": {
+                            "artifact_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "description": "UUID of the referenced artifact (cannot be another composer)"
+                            },
+                            "caption": {
+                                "type": "string",
+                                "description": "Optional text displayed under this section"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "example_content": {
+            "content": {
+                "sections": [
+                    {
+                        "artifact_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                        "caption": "Arrival in Antigua"
+                    },
+                    {
+                        "artifact_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                        "caption": "Best hidden hiking spots"
+                    },
+                    {
+                        "artifact_id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+                        "caption": "Our hotel by the lake"
+                    }
+                ]
+            }
+        },
+        "icon": "auto_awesome_mosaic",
+        "category": "publishing"
     }
 }
 
