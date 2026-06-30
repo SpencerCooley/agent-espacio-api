@@ -438,17 +438,19 @@ def search_public_folder_scope(
     Returns:
         Tuple of (matching_folders, matching_assets, matching_artifacts)
     """
-    target_path = folder.path
     search_pattern = f"%{query}%"
 
-    # Find all descendant folder IDs (including self)
-    # Use ilike for case-insensitive path matching (PostgreSQL safe)
-    descendant_folders = db.query(Folder).filter(
-        Folder.path.ilike(f"{target_path}%")
-    ).all()
-    descendant_ids = [f.id for f in descendant_folders]
+    # Find all descendant folder IDs recursively (including self)
+    # We walk the actual parent_id tree instead of relying on the path column,
+    # which guarantees we find every descendant at any nesting depth.
+    descendant_ids: list[UUID] = []
+    queue = [folder.id]
+    while queue:
+        children = db.query(Folder).filter(Folder.parent_id.in_(queue)).all()
+        queue = [c.id for c in children if c.id not in descendant_ids]
+        descendant_ids.extend(queue)
 
-    # Always include the target folder itself as a fallback
+    # Always include the target folder itself
     if folder.id not in descendant_ids:
         descendant_ids.append(folder.id)
 

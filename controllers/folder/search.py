@@ -36,16 +36,17 @@ def search_folder_scope(
     if not target:
         return [], [], []
 
-    target_path = target.path
+    # Find all descendant folder IDs recursively (including self)
+    # We walk the actual parent_id tree instead of relying on the path column,
+    # which guarantees we find every descendant at any nesting depth.
+    descendant_ids: list[UUID] = []
+    queue = [target.id]
+    while queue:
+        children = db.query(Folder).filter(Folder.parent_id.in_(queue)).all()
+        queue = [c.id for c in children if c.id not in descendant_ids]
+        descendant_ids.extend(queue)
 
-    # Find all descendant folder IDs (including self)
-    # Use ilike for case-insensitive path matching (PostgreSQL safe)
-    descendant_folders = db.query(Folder).filter(
-        Folder.path.ilike(f"{target_path}%")
-    ).all()
-    descendant_ids = [f.id for f in descendant_folders]
-
-    # Always include the target folder itself as a fallback
+    # Always include the target folder itself
     if target.id not in descendant_ids:
         descendant_ids.append(target.id)
 
