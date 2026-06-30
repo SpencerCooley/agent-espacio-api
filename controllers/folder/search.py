@@ -39,10 +39,15 @@ def search_folder_scope(
     target_path = target.path
 
     # Find all descendant folder IDs (including self)
+    # Use ilike for case-insensitive path matching (PostgreSQL safe)
     descendant_folders = db.query(Folder).filter(
-        Folder.path.like(f"{target_path}%")
+        Folder.path.ilike(f"{target_path}%")
     ).all()
     descendant_ids = [f.id for f in descendant_folders]
+
+    # Always include the target folder itself as a fallback
+    if target.id not in descendant_ids:
+        descendant_ids.append(target.id)
 
     if not descendant_ids:
         return [], [], []
