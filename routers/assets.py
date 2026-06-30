@@ -10,6 +10,7 @@ Endpoints for asset (file) management:
 - DELETE /assets/{asset_id} - Delete asset
 """
 from typing import Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, PlainTextResponse
 from sqlalchemy.orm import Session
@@ -185,17 +186,19 @@ async def download_asset(
 ):
     """
     Download or stream the file for an asset.
-    
+
     Supports HTTP Range requests for video/audio streaming, allowing players
     to seek to arbitrary positions without downloading the entire file first.
-    
+
     - **size**: Optional thumbnail size (e.g., 256, 512). Only available for image assets.
       Falls back to original if the requested thumbnail size wasn't generated.
-    
+    - **access_token**: Optional bearer token as query parameter (for <video>/<audio>
+      elements that cannot send Authorization headers).
+
     Returns the file with appropriate content type headers.
     """
     asset = controllers.asset.get_asset(db, asset_id)
-    
+
     if not asset:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
