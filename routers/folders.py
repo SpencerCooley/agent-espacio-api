@@ -253,6 +253,101 @@ async def get_folder_contents(
     )
 
 
+@router.get("/{folder_id}/search", response_model=FolderContentsResponse)
+async def search_folder_items(
+    folder_id: UUID,
+    q: str,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Search for items by name within a folder and all its subfolders.
+
+    Searches folder names, asset names, and artifact names using
+    case-insensitive partial matching.
+
+    Query param:
+        q: Search term
+
+    Returns a unified list of matching items in the same shape as folder contents.
+    """
+    folder = controllers.folder.get_folder(db, folder_id)
+
+    if not folder:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Folder not found"
+        )
+
+    if not q or not q.strip():
+        return FolderContentsResponse(
+            folder=folder,
+            items=[],
+            total_items=0
+        )
+
+    folders_result, assets_result, artifacts_result = controllers.folder.search_folder_scope(
+        db, folder_id, q.strip()
+    )
+
+    items = []
+
+    for f in folders_result:
+        items.append(FolderItemResponse(
+            kind="folder",
+            id=f.id,
+            name=f.name,
+            type=None,
+            mime_type=None,
+            size_bytes=None,
+            is_image=None,
+            is_public=f.is_public,
+            public_magic_id=f.public_magic_id,
+            created_at=f.created_at,
+            updated_at=f.updated_at,
+        ))
+
+    for a in assets_result:
+        items.append(FolderItemResponse(
+            kind="asset",
+            id=a.id,
+            name=a.name,
+            type=None,
+            mime_type=a.mime_type,
+            size_bytes=a.size_bytes,
+            is_image=a.is_image,
+            file_meta=a.file_meta,
+            is_public=a.is_public,
+            public_magic_id=a.public_magic_id,
+            created_at=a.created_at,
+            updated_at=a.updated_at,
+        ))
+
+    for ar in artifacts_result:
+        items.append(FolderItemResponse(
+            kind="artifact",
+            id=ar.id,
+            name=ar.name,
+            type=ar.type,
+            mime_type=None,
+            size_bytes=None,
+            is_image=None,
+            is_public=ar.is_public,
+            public_magic_id=ar.public_magic_id,
+            created_at=ar.created_at,
+            updated_at=ar.updated_at,
+        ))
+
+    # Sort alphabetically by name across all types
+    items.sort(key=lambda x: x.name.lower())
+
+    return FolderContentsResponse(
+        folder=folder,
+        items=items,
+        total_items=len(items)
+    )
+
+
 @router.put("/{folder_id}", response_model=FolderResponse)
 async def update_folder(
     folder_id: UUID,

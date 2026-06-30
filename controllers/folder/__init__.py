@@ -13,6 +13,7 @@ from controllers.folder.list import (
 from controllers.folder.update import update_folder
 from controllers.folder.delete import delete_folder
 from controllers.folder import share
+from controllers.folder.search import search_folder_scope
 
 __all__ = [
     # Create
@@ -27,6 +28,8 @@ __all__ = [
     "get_folder_tree",
     "count_folders_in_parent",
     "get_folder_contents",
+    # Search
+    "search_folder_scope",
     # Update
     "update_folder",
     # Delete

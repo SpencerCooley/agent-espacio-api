@@ -77,6 +77,19 @@ GET ${AGENT_ESPACIO_API}/folders/{folder_id}/contents
 
 Returns a unified list of folders, assets, and artifacts in that folder, sorted alphabetically by name.
 
+### Step 2b: Search Within a Folder (Better for Finding Things)
+
+Instead of recursively listing every subfolder to find an item, use the search endpoint:
+
+GET ${AGENT_ESPACIO_API}/folders/{folder_id}/search?q=search-term
+
+This searches **folder names, asset names, and artifact names** within the specified folder AND all its subfolders, using case-insensitive partial matching. Results are returned as a unified list (same shape as /contents) sorted alphabetically.
+
+**When to use search vs. listing:**
+- Use `/search` when you know (or roughly know) the name of what you're looking for.
+- Use `/contents` when you need to see everything in a specific folder.
+- **Example**: If the user says "find my note about LLM training", search with `q=llm train` rather than listing every subfolder.
+
 ### Step 3: Create a Folder
 
 POST ${AGENT_ESPACIO_API}/folders
@@ -200,6 +213,7 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 - Artifacts use a flexible JSONB content field — structure depends on the artifact type
 - Folder creators can be null (root folder, API-key created folders)
 - Items in a folder are always sorted alphabetically by name
+- **Prefer search over recursive listing** — When looking for a specific item, use `GET /folders/{id}/search?q=...` instead of walking the folder tree
 
 ## 8. Common Workflows
 
@@ -214,6 +228,11 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 1. POST /folders {"name": "2024", "parent_id": "root_id"}
 2. POST /folders {"name": "Q1", "parent_id": "2024_folder_id"}
 
+### Find an item without knowing its exact location
+1. Start from root: GET /folders (to get root id)
+2. Search: GET /folders/{root_id}/search?q=training+notes
+3. Results will include the item with its folder context
+
 ## 9. API Endpoints Reference
 
 ### Folders
@@ -221,6 +240,7 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 - POST /folders — Create folder
 - GET /folders/{id} — Get folder details
 - GET /folders/{id}/contents — Get subfolders + assets + artifacts (unified list)
+- GET /folders/{id}/search?q=term — Search names across folder + all descendants
 - PUT /folders/{id} — Rename/move folder
 - DELETE /folders/{id} — Recursive delete
 
