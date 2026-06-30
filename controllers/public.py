@@ -388,13 +388,13 @@ def _scan_composer_sections_for_asset_id(sections, asset_id_str):
 def get_public_folder_contents(db: Session, folder: Folder) -> Tuple[list, list, list]:
     """
     Get all contents of a public folder.
-    
+
     Returns subfolders, assets, and artifacts that are in this folder.
-    
+
     Args:
         db: Database session
         folder: Public folder
-        
+
     Returns:
         Tuple of (subfolders, assets, artifacts)
     """
@@ -402,15 +402,74 @@ def get_public_folder_contents(db: Session, folder: Folder) -> Tuple[list, list,
     subfolders = db.query(Folder).filter(
         Folder.parent_id == folder.id
     ).order_by(Folder.name).all()
-    
+
     # Get all assets (public by folder inheritance)
     assets = db.query(Asset).filter(
         Asset.folder_id == folder.id
     ).order_by(Asset.name).all()
-    
+
     # Get all artifacts (public by folder inheritance)
     artifacts = db.query(Artifact).filter(
         Artifact.folder_id == folder.id
     ).order_by(Artifact.name).all()
-    
+
     return subfolders, assets, artifacts
+
+
+def search_public_folder_scope(
+    db: Session,
+    folder: Folder,
+    query: str,
+    limit: int = 50
+) -> Tuple[list, list, list]:
+    """
+    Search for publicly accessible items by name within a public folder
+    and all its descendants.
+
+    Only returns items that are publicly accessible (directly public,
+    or in a public folder/ancestor, or have derived access).
+
+    Args:
+        db: Database session
+        folder: The public folder to search within
+        query: Search term (case-insensitive partial match)
+        limit: Maximum results per kind
+
+    Returns:
+        Tuple of (matching_folders, matching_assets, matching_artifacts)
+    """
+    target_path = folder.path
+    search_pattern = f"%{query}%"
+
+    # Find all descendant folder IDs (including self)
+    descendant_folders = db.query(Folder).filter(
+        Folder.path.like(f"{target_path}%")
+    ).all()
+    descendant_ids = [f.id for f in descendant_folders]
+
+    if not descendant_ids:
+        return [], [], []
+
+    # Search folders within scope that are publicly accessible
+    folder_results = db.query(Folder).filter(
+        Folder.id.in_(descendant_ids),
+        Folder.is_root == False,
+        Folder.name.ilike(search_pattern)
+    ).order_by(Folder.name).limit(limit).all()
+    folder_results = [f for f in folder_results if _is_folder_or_ancestor_public(db, f)]
+
+    # Search assets within scope that are publicly accessible
+    asset_results = db.query(Asset).filter(
+        Asset.folder_id.in_(descendant_ids),
+        Asset.name.ilike(search_pattern)
+    ).order_by(Asset.name).limit(limit).all()
+    asset_results = [a for a in asset_results if is_asset_public(db, a)]
+
+    # Search artifacts within scope that are publicly accessible
+    artifact_results = db.query(Artifact).filter(
+        Artifact.folder_id.in_(descendant_ids),
+        Artifact.name.ilike(search_pattern)
+    ).order_by(Artifact.name).limit(limit).all()
+    artifact_results = [ar for ar in artifact_results if is_artifact_public(db, ar)]
+
+    return folder_results, asset_results, artifact_results

@@ -90,6 +90,11 @@ This searches **folder names, asset names, and artifact names** within the speci
 - Use `/contents` when you need to see everything in a specific folder.
 - **Example**: If the user says "find my note about LLM training", search with `q=llm train` rather than listing every subfolder.
 
+**Public folders also support search** (no auth required):
+GET ${AGENT_ESPACIO_API}/public/search/{folder_magic_id}?q=search-term
+
+Use this when a folder is publicly shared and you need to find items within it without authentication. Only publicly accessible items are returned.
+
 ### Step 3: Create a Folder
 
 POST ${AGENT_ESPACIO_API}/folders
@@ -233,6 +238,11 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 2. Search: GET /folders/{root_id}/search?q=training+notes
 3. Results will include the item with its folder context
 
+### Search a public folder for publicly shared content
+1. Get the folder's public_magic_id from its metadata
+2. Search: GET /public/search/{public_magic_id}?q=search-term
+3. No authentication needed — only public items are returned
+
 ## 9. API Endpoints Reference
 
 ### Folders
@@ -243,6 +253,11 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 - GET /folders/{id}/search?q=term — Search names across folder + all descendants
 - PUT /folders/{id} — Rename/move folder
 - DELETE /folders/{id} — Recursive delete
+
+### Public (No Authentication Required)
+- GET /public/view/{magic_id} — View a public folder, asset, or artifact
+- GET /public/assets/{magic_id}/download — Download a public asset
+- GET /public/search/{magic_id}?q=term — Search within a public folder + descendants
 
 ### Assets
 - GET /assets — List assets (with filters)

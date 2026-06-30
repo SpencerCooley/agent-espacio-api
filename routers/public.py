@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from dependencies.dependencies import get_db
 from types_definitions.folder import FolderResponse, FolderContentsResponse
+from types_definitions.artifact import FolderItemResponse
 from types_definitions.asset import AssetResponse
 from types_definitions.artifact import ArtifactResponse, CompositionResponse, CompositionSectionResponse
 import controllers
@@ -276,6 +277,116 @@ async def public_download_asset(
         read_file_func=lambda chunk_size: read_file_from_path(file_path, chunk_size),
         read_range_func=lambda start, end, chunk_size: read_file_range_from_path(file_path, start, end, chunk_size),
     )
+
+
+@router.get("/search/{magic_id}")
+async def public_folder_search(
+    magic_id: UUID,
+    q: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Search for items by name within a public folder and all its subfolders.
+
+    Only returns items that are publicly accessible.
+
+    Query param:
+        q: Search term
+
+    Returns a unified list of matching items in the same shape as folder contents.
+    """
+    item, kind = controllers.public.resolve_public_item(db, magic_id)
+
+    if not item or kind != 'folder':
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Public folder not found"
+        )
+
+    if not item.is_public:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Folder is not publicly accessible"
+        )
+
+    if not q or not q.strip():
+        return {
+            "kind": "folder",
+            "folder": {
+                "id": item.id,
+                "name": item.name,
+                "is_public": item.is_public,
+                "public_magic_id": item.public_magic_id,
+            },
+            "items": [],
+            "total_items": 0,
+        }
+
+    folders_result, assets_result, artifacts_result = controllers.public.search_public_folder_scope(
+        db, item, q.strip()
+    )
+
+    items = []
+
+    for f in folders_result:
+        items.append(FolderItemResponse(
+            kind="folder",
+            id=f.id,
+            name=f.name,
+            type=None,
+            mime_type=None,
+            size_bytes=None,
+            is_image=None,
+            is_public=f.is_public,
+            public_magic_id=f.public_magic_id,
+            created_at=f.created_at,
+            updated_at=f.updated_at,
+        ))
+
+    for a in assets_result:
+        items.append(FolderItemResponse(
+            kind="asset",
+            id=a.id,
+            name=a.name,
+            type=None,
+            mime_type=a.mime_type,
+            size_bytes=a.size_bytes,
+            is_image=a.is_image,
+            file_meta=a.file_meta,
+            is_public=a.is_public,
+            public_magic_id=a.public_magic_id,
+            created_at=a.created_at,
+            updated_at=a.updated_at,
+        ))
+
+    for ar in artifacts_result:
+        items.append(FolderItemResponse(
+            kind="artifact",
+            id=ar.id,
+            name=ar.name,
+            type=ar.type,
+            mime_type=None,
+            size_bytes=None,
+            is_image=None,
+            is_public=ar.is_public,
+            public_magic_id=ar.public_magic_id,
+            created_at=ar.created_at,
+            updated_at=ar.updated_at,
+        ))
+
+    items.sort(key=lambda x: x.name.lower())
+
+    return {
+        "kind": "folder",
+        "folder": {
+            "id": item.id,
+            "name": item.name,
+            "is_public": item.is_public,
+            "public_magic_id": item.public_magic_id,
+        },
+        "items": items,
+        "total_items": len(items),
+    }
 
 
 @router.get("/composition/{magic_id}")
