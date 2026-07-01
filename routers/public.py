@@ -163,6 +163,11 @@ async def public_view(
         }
 
     elif kind == 'artifact':
+        import copy
+        from controllers.asset.signed_url import enrich_content_with_signed_urls
+        enriched_content = enrich_content_with_signed_urls(
+            copy.deepcopy(item.content or {}), expiry_seconds=3600
+        )
         return {
             "kind": "artifact",
             "artifact": {
@@ -170,7 +175,7 @@ async def public_view(
                 "name": item.name,
                 "type": item.type,
                 "description": item.description,
-                "content": item.content,
+                "content": enriched_content,
                 "is_public": True,
                 "public_magic_id": item.public_magic_id,
                 "created_at": item.created_at,

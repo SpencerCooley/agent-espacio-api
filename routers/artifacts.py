@@ -198,6 +198,7 @@ async def update_artifact(
             type=request.type,
             description=request.description,
             content=request.content,
+            meta=request.meta,
             folder_id=request.folder_id,
         )
         new_folder_id = str(updated.folder_id) if updated.folder_id else "00000000-0000-0000-0000-000000000001"

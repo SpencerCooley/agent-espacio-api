@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     
     # API
     api_host: str = "0.0.0.0"
+
+    secret_key: str = "some-sort-of-secret"
     
     class Config:
         env_file = ".env"

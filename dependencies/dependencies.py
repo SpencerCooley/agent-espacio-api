@@ -278,31 +278,16 @@ def allow_agent_api_key(
     return api_key
 
 
-def require_auth(
-    token: Optional[str] = Depends(oauth2_scheme_optional),
-    x_agent_key: Optional[str] = Header(None, alias="X-Agent-Key"),
-    request: Request = None,
-    db: Session = Depends(get_db)
-) -> Optional[User]:
+def _validate_auth(db: Session, token: Optional[str], x_agent_key: Optional[str]) -> Optional[User]:
     """
-    Unified authentication - accepts Bearer token, X-Agent-Key, or access_token query param.
+    Validate authentication without raising exceptions.
     
-    Args:
-        token: Optional Bearer token from Authorization header
-        x_agent_key: Optional API key from X-Agent-Key header
-        request: FastAPI request object (for reading query params)
-        db: Database session
-        
-    Returns:
-        Optional[User]: Authenticated user if using Bearer token, None if using API key
-        
-    Raises:
-        HTTPException: 401 if neither auth method is valid
+    Returns authenticated User for Bearer tokens, None for API keys,
+    or None if authentication failed.
     """
-    # Try Bearer token first
+    # Try Bearer token
     if token:
         db_token = db.query(Token).filter(Token.token == token).first()
-        
         if db_token and db_token.is_active:
             if not db_token.expires_at or db_token.expires_at >= datetime.utcnow():
                 return db_token.user
@@ -314,22 +299,44 @@ def require_auth(
             APIKey.key_hash == key_hash,
             APIKey.is_active == True
         ).first()
-        
         if api_key:
-            # API key is valid but has no associated user
             return None
     
-    # Try access_token query param (for <video>/<audio> elements that can't send headers)
-    if request:
-        access_token = request.query_params.get("access_token")
-        if access_token:
-            db_token = db.query(Token).filter(Token.token == access_token).first()
-            if db_token and db_token.is_active:
-                if not db_token.expires_at or db_token.expires_at >= datetime.utcnow():
-                    return db_token.user
-                else:
-                    db_token.is_active = False
-                    db.commit()
+    return None
+
+
+def require_auth(
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+    x_agent_key: Optional[str] = Header(None, alias="X-Agent-Key"),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """
+    Unified authentication - accepts Bearer token or X-Agent-Key.
+    
+    Args:
+        token: Optional Bearer token from Authorization header
+        x_agent_key: Optional API key from X-Agent-Key header
+        db: Database session
+        
+    Returns:
+        Optional[User]: Authenticated user if using Bearer token, None if using API key
+        
+    Raises:
+        HTTPException: 401 if neither auth method is valid
+    """
+    user = _validate_auth(db, token, x_agent_key)
+    if user is not None:
+        return user
+    
+    # Check if API key was valid (returns None but no exception)
+    if x_agent_key:
+        key_hash = hash_api_key(x_agent_key)
+        api_key = db.query(APIKey).filter(
+            APIKey.key_hash == key_hash,
+            APIKey.is_active == True
+        ).first()
+        if api_key:
+            return None
     
     # Neither auth method succeeded
     raise HTTPException(

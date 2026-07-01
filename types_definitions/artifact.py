@@ -25,6 +25,7 @@ class UpdateArtifactRequest(BaseModel):
     type: Optional[str] = Field(None, min_length=1, max_length=255, description="New artifact type key")
     description: Optional[str] = Field(None, description="New description")
     content: Optional[dict[str, Any]] = Field(None, description="New content JSONB")
+    meta: Optional[dict[str, Any]] = Field(None, description="New metadata JSONB")
     folder_id: Optional[UUID] = Field(None, description="New parent folder ID (for moving)")
 
 
@@ -35,6 +36,7 @@ class ArtifactResponse(BaseModel):
     type: str = Field(..., description="Artifact type key")
     description: Optional[str] = Field(None, description="Description/readme for AI context")
     content: dict[str, Any] = Field(..., description="Artifact content JSONB")
+    meta: Optional[dict[str, Any]] = Field(None, description="Artifact metadata JSONB")
     folder_id: UUID = Field(..., description="Parent folder ID")
     is_public: bool = Field(..., description="Whether this artifact is publicly shared")
     public_magic_id: Optional[UUID] = Field(None, description="Public share magic link ID")

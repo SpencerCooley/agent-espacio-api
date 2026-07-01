@@ -185,6 +185,8 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
             assets[str(ast.id)] = ast
 
     # Build resolved sections, filtering by public access
+    from controllers.asset.signed_url import enrich_content_with_signed_urls
+    
     resolved_sections = []
     for section in sections_data:
         if not isinstance(section, dict):
@@ -201,8 +203,18 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
             else:
                 is_public = is_artifact_public(db, item)
 
+        if is_public and item and isinstance(item, Artifact):
+            # Enrich artifact content with signed URLs for embedded assets
+            import copy
+            item_dict = _serialize_item(item)
+            item_dict["content"] = enrich_content_with_signed_urls(
+                copy.deepcopy(item.content or {}), expiry_seconds=3600
+            )
+        else:
+            item_dict = _serialize_item(item) if is_public else None
+
         resolved_sections.append({
-            "item": _serialize_item(item) if is_public else None,
+            "item": item_dict,
             "caption": caption,
             "artifact_id": str(item_id) if item_id else None,
         })

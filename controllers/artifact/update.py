@@ -17,6 +17,7 @@ def update_artifact(
     type: Optional[str] = None,
     description: Optional[str] = None,
     content: Optional[dict] = None,
+    meta: Optional[dict] = None,
     folder_id: Optional[UUID] = None,
 ) -> Artifact:
     """
@@ -29,6 +30,7 @@ def update_artifact(
         type: New artifact type key
         description: New description
         content: New content JSONB
+        meta: New metadata JSONB
         folder_id: New parent folder ID (for moving)
 
     Returns:
@@ -56,6 +58,10 @@ def update_artifact(
     # Update content if provided
     if content is not None:
         artifact.content = content
+
+    # Update meta if provided
+    if meta is not None:
+        artifact.meta = meta
 
     # Validate composer content (no nested composers)
     if artifact.type == "composer":

@@ -31,6 +31,7 @@ class Artifact(Base):
     type = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     content = Column(JSONB, nullable=False, default=dict)
+    meta = Column(JSONB, nullable=True, default=dict)
     folder_id = Column(UUID(as_uuid=True), ForeignKey("folders.id"), nullable=False, index=True)
     is_public = Column(Boolean, default=False, server_default='false', nullable=False)
     public_magic_id = Column(UUID(as_uuid=True), nullable=True, unique=True, index=True)

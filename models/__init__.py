@@ -21,6 +21,8 @@ from models.folder import Folder
 from models.asset import Asset
 from models.artifact import Artifact
 from models.theme import Theme
+from models.settings import Setting
+from models.feed_item import FeedItem
 
 __all__ = [
     "Base",
@@ -33,4 +35,6 @@ __all__ = [
     "Asset",
     "Artifact",
     "Theme",
+    "Setting",
+    "FeedItem",
 ]

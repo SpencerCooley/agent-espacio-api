@@ -176,36 +176,9 @@ async def get_asset(
     return asset
 
 
-@router.get("/{asset_id}/download")
-async def download_asset(
-    asset_id: UUID,
-    request: Request,
-    size: int = None,
-    current_user: Optional[User] = Depends(require_auth),
-    db: Session = Depends(get_db)
-):
-    """
-    Download or stream the file for an asset.
-
-    Supports HTTP Range requests for video/audio streaming, allowing players
-    to seek to arbitrary positions without downloading the entire file first.
-
-    - **size**: Optional thumbnail size (e.g., 256, 512). Only available for image assets.
-      Falls back to original if the requested thumbnail size wasn't generated.
-    - **access_token**: Optional bearer token as query parameter (for <video>/<audio>
-      elements that cannot send Authorization headers).
-
-    Returns the file with appropriate content type headers.
-    """
-    asset = controllers.asset.get_asset(db, asset_id)
-
-    if not asset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Asset not found"
-        )
-    
-    # Thumbnail download (thumbnails are small, no range support needed)
+def _serve_asset_file(asset, request: Request, size: int = None):
+    """Serve an asset file (thumbnail or original with range support)."""
+    # Thumbnail download
     if size is not None:
         if size not in THUMBNAIL_SIZES:
             raise HTTPException(
@@ -217,22 +190,20 @@ async def download_asset(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Thumbnails are only available for image and video assets"
             )
-        if not thumbnail_exists(asset_id, size):
-            # Videos without a generated thumbnail should not fall back to the original file
+        if not thumbnail_exists(asset.id, size):
             if asset.mime_type.startswith("video/"):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Video thumbnail not found"
                 )
-            # Fall back to original for images (small images may not have thumbnails)
-            pass
+            # Fall back to original for images
         else:
             try:
                 return StreamingResponse(
-                    read_file_from_path(get_thumbnail_path(asset_id, size)),
+                    read_file_from_path(get_thumbnail_path(asset.id, size)),
                     media_type="image/webp",
                     headers={
-                        "Content-Disposition": f'inline; filename="{asset_id}_thumb_{size}.webp"',
+                        "Content-Disposition": f'inline; filename="{asset.id}_thumb_{size}.webp"',
                         "Accept-Ranges": "bytes",
                     }
                 )
@@ -241,11 +212,11 @@ async def download_asset(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Thumbnail file not found on disk"
                 )
-    
-    # Stream the original file with range request support for video/audio
+
+    # Stream the original file with range request support
     from services.file_storage import get_asset_path
     file_path = get_asset_path(asset.storage_filename)
-    
+
     try:
         return create_streaming_response_with_range(
             file_path=file_path,
@@ -260,6 +231,73 @@ async def download_asset(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="File not found on disk"
         )
+
+
+@router.post("/{asset_id}/signed-url")
+async def create_signed_url(
+    asset_id: UUID,
+    size: int = None,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate a time-bound signed URL for downloading an asset.
+
+    The signed URL is valid for 10 minutes and can be used without authentication.
+    """
+    asset = controllers.asset.get_asset(db, asset_id)
+    if not asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
+
+    from controllers.asset.signed_url import generate_signed_url
+    signed_url = generate_signed_url(asset_id, size=size)
+
+    return {"signed_url": signed_url}
+
+
+@router.get("/{asset_id}/download")
+async def download_asset(
+    asset_id: UUID,
+    request: Request,
+    size: int = None,
+    signed: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Download or stream the file for an asset.
+
+    Supports two authentication modes:
+    1. **Signed URL**: Pass `?signed=` query param for time-bound unauthenticated access.
+    2. **Bearer token / API key**: Standard authentication via Authorization header or X-Agent-Key.
+
+    Supports HTTP Range requests for video/audio streaming.
+    """
+    asset = controllers.asset.get_asset(db, asset_id)
+    if not asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
+
+    # Mode 1: Signed URL (unauthenticated, time-bound)
+    if signed:
+        from controllers.asset.signed_url import verify_signed_url
+        if verify_signed_url(signed, asset_id, size):
+            return _serve_asset_file(asset, request, size)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired signed URL")
+
+    # Mode 2: Normal authentication
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    x_agent_key = request.headers.get("X-Agent-Key")
+
+    from dependencies.dependencies import _validate_auth
+    user = _validate_auth(db, token or None, x_agent_key or None)
+
+    if user is None and not x_agent_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer, X-Agent-Key"}
+        )
+
+    return _serve_asset_file(asset, request, size)
 
 
 @router.get("/{asset_id}/content")

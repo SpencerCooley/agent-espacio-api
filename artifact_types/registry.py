@@ -999,7 +999,19 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             '    "content": { "sections": [{ "artifact_id": "...", "caption": "A beautiful day" }] } }\n\n'
             "WHEN UPDATING:\n"
             "  PUT /artifacts/{id} with updated sections array.\n"
-            "  The editor auto-saves (1.5s debounce)."
+            "  The editor auto-saves (1.5s debounce).\n\n"
+            "META:\n"
+            "  Compositions support an optional meta JSON object on the artifact itself.\n"
+            "  Set via: PUT /artifacts/{id} with { \"meta\": { ... } }\n"
+            "  Useful keys:\n"
+            "    - tags: array of strings for sub-feed categorization (e.g., ['travel', 'portfolio'])\n"
+            "    - cover_asset_id: UUID of an image asset to use as a cover photo\n"
+            "    - excerpt: short summary text for feed cards\n\n"
+            "PUBLIC FEED:\n"
+            "  A composition only appears in the public feed at /feed if it is:\n"
+            "    1. Publicly accessible (is_public or in a public folder)\n"
+            "    2. Explicitly added to the curated feed via POST /feed/items\n"
+            "  Use meta.tags to filter sub-feeds: /feed?tag=travel"
         ),
         "content_schema": {
             "type": "object",
