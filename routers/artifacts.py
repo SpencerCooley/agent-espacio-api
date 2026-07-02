@@ -320,6 +320,13 @@ async def preview_artifact(
         "definition": public_theme_definition,
     }
 
+    # Enrich content with signed URLs so embedded images load without auth headers
+    import copy
+    from controllers.asset.signed_url import enrich_content_with_signed_urls
+    enriched_content = enrich_content_with_signed_urls(
+        copy.deepcopy(artifact.content or {}), expiry_seconds=3600
+    )
+
     return PreviewArtifactResponse(
         kind="artifact",
         artifact={
@@ -327,7 +334,7 @@ async def preview_artifact(
             "name": artifact.name,
             "type": artifact.type,
             "description": artifact.description,
-            "content": artifact.content,
+            "content": enriched_content,
             "public_magic_id": str(artifact.public_magic_id) if artifact.public_magic_id else str(artifact.id),
         },
         public_theme=public_theme_response,

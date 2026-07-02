@@ -109,3 +109,57 @@ def set_public_theme(db: Session, theme_id: str, mode: str) -> Setting:
         'theme_id': theme_id,
         'mode': mode,
     })
+
+
+def get_branding(db: Session) -> Dict[str, Any]:
+    """
+    Get the branding settings.
+
+    Returns:
+        {
+            logo_light_asset_id: str|None,
+            logo_dark_asset_id: str|None,
+            background_asset_id: str|None,
+            background_style: 'cover'|'tile'
+        }
+    """
+    value = get_setting(db, 'branding')
+    if value and isinstance(value, dict):
+        return {
+            'logo_light_asset_id': value.get('logo_light_asset_id') or None,
+            'logo_dark_asset_id': value.get('logo_dark_asset_id') or None,
+            'background_asset_id': value.get('background_asset_id') or None,
+            'background_style': value.get('background_style', 'cover'),
+        }
+    return {
+        'logo_light_asset_id': None,
+        'logo_dark_asset_id': None,
+        'background_asset_id': None,
+        'background_style': 'cover',
+    }
+
+
+def set_branding(db: Session,
+                 logo_light_asset_id: Optional[str] = None,
+                 logo_dark_asset_id: Optional[str] = None,
+                 background_asset_id: Optional[str] = None,
+                 background_style: str = 'cover') -> Setting:
+    """
+    Set the branding settings.
+
+    Args:
+        db: Database session
+        logo_light_asset_id: Asset UUID for the light mode logo, or None to clear
+        logo_dark_asset_id: Asset UUID for the dark mode logo, or None to clear
+        background_asset_id: Asset UUID for the background, or None to clear
+        background_style: 'cover' or 'tile'
+
+    Returns:
+        The updated Setting object.
+    """
+    return set_setting(db, 'branding', {
+        'logo_light_asset_id': logo_light_asset_id,
+        'logo_dark_asset_id': logo_dark_asset_id,
+        'background_asset_id': background_asset_id,
+        'background_style': background_style,
+    })

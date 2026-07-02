@@ -257,6 +257,15 @@ def _inject_signed_urls_into_nodes(nodes: list, signed_urls: dict) -> None:
             continue
         attrs = node.get('attrs', {})
         asset_id = attrs.get('data-asset-id')
+        # Fallback: extract asset ID from src if data-asset-id is missing
+        if not asset_id:
+            src = attrs.get('src', '')
+            if '/assets/' in src and '/download' in src:
+                parts = src.split('/')
+                for i, part in enumerate(parts):
+                    if part == 'assets' and i + 1 < len(parts):
+                        asset_id = parts[i + 1]
+                        break
         if asset_id and str(asset_id) in signed_urls:
             attrs['src'] = signed_urls[str(asset_id)]
             attrs['signed_url'] = signed_urls[str(asset_id)]
