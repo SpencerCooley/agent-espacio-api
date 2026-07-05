@@ -5,11 +5,13 @@ Handles theme CRUD operations stored in the themes table.
 """
 from typing import Optional, List, Dict, Any
 from uuid import UUID
+import copy
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import ProgrammingError
 
 from models.theme import Theme
+from controllers.default_theme import DEFAULT_THEME_DEFINITION
 
 
 def get_all_themes(db: Session) -> List[Theme]:
@@ -56,23 +58,28 @@ def get_public_theme_definition(db: Session, theme_id: str, mode: str) -> Option
     return theme.dark_definition
 
 
-def create_theme(db: Session, name: str, light_definition: dict, dark_definition: dict) -> Theme:
+def create_theme(
+    db: Session,
+    name: str,
+    light_definition: Optional[dict] = None,
+    dark_definition: Optional[dict] = None,
+) -> Theme:
     """
     Create a new theme.
 
     Args:
         db: Database session
         name: Theme display name
-        light_definition: MUI ThemeOptions for light mode
-        dark_definition: MUI ThemeOptions for dark mode
+        light_definition: MUI ThemeOptions for light mode. If None, seeded from DEFAULT_THEME_DEFINITION.
+        dark_definition: MUI ThemeOptions for dark mode. If None, seeded from DEFAULT_THEME_DEFINITION.
 
     Returns:
         The created Theme object.
     """
     theme = Theme(
         name=name,
-        light_definition=light_definition,
-        dark_definition=dark_definition,
+        light_definition=copy.deepcopy(light_definition) if light_definition is not None else copy.deepcopy(DEFAULT_THEME_DEFINITION["light"]),
+        dark_definition=copy.deepcopy(dark_definition) if dark_definition is not None else copy.deepcopy(DEFAULT_THEME_DEFINITION["dark"]),
     )
     db.add(theme)
     db.commit()

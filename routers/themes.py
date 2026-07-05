@@ -31,8 +31,8 @@ class ThemeDefinitionResponse(BaseModel):
 
 class CreateThemeRequest(BaseModel):
     name: str
-    light_definition: dict
-    dark_definition: dict
+    light_definition: Optional[dict] = None
+    dark_definition: Optional[dict] = None
 
 
 class UpdateThemeRequest(BaseModel):
