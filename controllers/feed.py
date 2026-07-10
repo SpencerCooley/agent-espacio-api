@@ -9,7 +9,7 @@ Behavior:
                            regardless of whether it's in the main feed)
 """
 from typing import Optional, List, Dict, Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -144,6 +144,16 @@ def add_to_feed(db: Session, artifact_id: UUID) -> FeedItem:
     existing = db.query(FeedItem).filter(FeedItem.artifact_id == artifact_id).first()
     if existing:
         return existing
+
+    # Auto-publish the artifact so it has a public_magic_id for feed links
+    artifact = db.query(Artifact).filter(Artifact.id == artifact_id).first()
+    if artifact:
+        if not artifact.is_public:
+            artifact.is_public = True
+        if not artifact.public_magic_id:
+            artifact.public_magic_id = uuid4()
+        db.commit()
+        db.refresh(artifact)
 
     # Determine next sort_order
     max_sort = db.query(FeedItem).order_by(desc(FeedItem.sort_order)).first()
