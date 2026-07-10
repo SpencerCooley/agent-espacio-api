@@ -137,12 +137,16 @@ def _scan_content_for_assets(content: dict, asset_ids: set) -> None:
                 if isinstance(assoc, dict) and assoc.get('id') and assoc.get('type') == 'asset':
                     asset_ids.add(str(assoc['id']))
     
-    # Note/image nodes
+    # Note/image nodes — TipTap doc format: {"type": "doc", "content": [...]}
     doc_content = content.get('content', {})
-    if isinstance(doc_content, dict):
+    if isinstance(doc_content, list):
+        # Top-level content is the TipTap node array
+        _scan_nodes_for_assets(doc_content, asset_ids)
+    elif isinstance(doc_content, dict):
+        # Nested doc structure (e.g. composer sections)
         nodes = doc_content.get('content', [])
         _scan_nodes_for_assets(nodes, asset_ids)
-    
+
     # Composer sections
     sections = content.get('sections', [])
     if isinstance(sections, list):
@@ -232,12 +236,16 @@ def _inject_signed_urls(content: dict, signed_urls: dict) -> None:
                     if assoc_id and assoc_id in signed_urls:
                         item['signed_url'] = signed_urls[assoc_id]
     
-    # Note/image nodes
+    # Note/image nodes — TipTap doc format: {"type": "doc", "content": [...]}
     doc_content = content.get('content', {})
-    if isinstance(doc_content, dict):
+    if isinstance(doc_content, list):
+        # Top-level content is the TipTap node array
+        _inject_signed_urls_into_nodes(doc_content, signed_urls)
+    elif isinstance(doc_content, dict):
+        # Nested doc structure (e.g. composer sections)
         nodes = doc_content.get('content', [])
         _inject_signed_urls_into_nodes(nodes, signed_urls)
-    
+
     # Composer sections
     sections = content.get('sections', [])
     if isinstance(sections, list):
