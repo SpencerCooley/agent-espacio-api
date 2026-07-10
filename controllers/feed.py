@@ -58,7 +58,7 @@ def list_feed_items(
 
     Two modes:
     1. No tag provided → curated main feed. Only artifacts explicitly added
-       to feed_items appear. Ordered by sort_order ASC, updated_at DESC.
+        to feed_items appear. Ordered by sort_order DESC, updated_at DESC.
     2. Tag provided    → open tag discovery. Any publicly accessible composer
        with the tag in meta.tags appears. Ordered by updated_at DESC.
        Does NOT require the artifact to be in feed_items.
@@ -97,7 +97,7 @@ def list_feed_items(
             db.query(FeedItem, Artifact)
             .join(Artifact, FeedItem.artifact_id == Artifact.id)
             .filter(Artifact.type == "composer")
-            .order_by(FeedItem.sort_order.asc(), FeedItem.updated_at.desc())
+            .order_by(FeedItem.sort_order.desc(), FeedItem.updated_at.desc())
             .offset(offset)
             .limit(limit + 10)
             .all()
