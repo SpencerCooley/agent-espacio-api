@@ -277,25 +277,44 @@ async def download_asset(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
 
     # Mode 1: Signed URL (unauthenticated, time-bound)
+    # This MUST be checked before any auth dependency so that unauthenticated
+    # signed URLs work correctly.
     if signed:
         from controllers.asset.signed_url import verify_signed_url
         if verify_signed_url(signed, asset_id, size):
             return _serve_asset_file(asset, request, size)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired signed URL")
 
-    # Mode 2: Normal authentication
+    # Mode 2: Normal authentication — inline check so signed URLs bypass auth
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     x_agent_key = request.headers.get("X-Agent-Key")
 
-    from dependencies.dependencies import _validate_auth
+    from dependencies.dependencies import _validate_auth, hash_api_key
+    from models.api_key import APIKey
     user = _validate_auth(db, token or None, x_agent_key or None)
 
-    if user is None and not x_agent_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-            headers={"WWW-Authenticate": "Bearer, X-Agent-Key"}
-        )
+    # _validate_auth returns User for valid Bearer tokens, None for valid API keys,
+    # and None for invalid/missing auth. We must distinguish valid API key from invalid.
+    if user is None:
+        if x_agent_key:
+            # API key was provided — verify it independently
+            key_hash = hash_api_key(x_agent_key)
+            api_key = db.query(APIKey).filter(
+                APIKey.key_hash == key_hash,
+                APIKey.is_active == True
+            ).first()
+            if not api_key:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid API key"
+                )
+            # Valid API key — proceed
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required",
+                headers={"WWW-Authenticate": "Bearer, X-Agent-Key"}
+            )
 
     return _serve_asset_file(asset, request, size)
 

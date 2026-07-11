@@ -98,6 +98,7 @@ async def public_view(
                 "id": str(f.id),
                 "name": f.name,
                 "is_public": f.is_public,
+                "inherited_public": not f.is_public,
                 "public_magic_id": str(f.public_magic_id) if f.public_magic_id else None,
                 "created_at": f.created_at,
                 "updated_at": f.updated_at,
@@ -109,7 +110,8 @@ async def public_view(
                 "name": a.name,
                 "mime_type": a.mime_type,
                 "is_image": a.is_image,
-                "is_public": a.is_public or (item.is_public if item else False),
+                "is_public": a.is_public,
+                "inherited_public": not a.is_public,
                 "public_magic_id": a.public_magic_id,
                 "created_at": a.created_at,
                 "updated_at": a.updated_at,
@@ -120,7 +122,8 @@ async def public_view(
                 "id": art.id,
                 "name": art.name,
                 "type": art.type,
-                "is_public": art.is_public or (item.is_public if item else False),
+                "is_public": art.is_public,
+                "inherited_public": not art.is_public,
                 "public_magic_id": art.public_magic_id,
                 "created_at": art.created_at,
                 "updated_at": art.updated_at,
@@ -229,12 +232,6 @@ async def public_download_asset(
             detail="Public asset not found"
         )
     
-    if not controllers.public.is_asset_public(db, asset):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Asset is not publicly accessible"
-        )
-    
     # Thumbnail download
     if size is not None:
         if size not in THUMBNAIL_SIZES:
@@ -308,7 +305,7 @@ async def public_folder_search(
             detail="Public folder not found"
         )
 
-    if not item.is_public:
+    if not controllers.public.is_folder_public(db, item):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Folder is not publicly accessible"
@@ -343,6 +340,7 @@ async def public_folder_search(
             size_bytes=None,
             is_image=None,
             is_public=f.is_public,
+            inherited_public=not f.is_public,
             public_magic_id=f.public_magic_id,
             created_at=f.created_at,
             updated_at=f.updated_at,
@@ -359,6 +357,7 @@ async def public_folder_search(
             is_image=a.is_image,
             file_meta=a.file_meta,
             is_public=a.is_public,
+            inherited_public=not a.is_public,
             public_magic_id=a.public_magic_id,
             created_at=a.created_at,
             updated_at=a.updated_at,
@@ -374,6 +373,7 @@ async def public_folder_search(
             size_bytes=None,
             is_image=None,
             is_public=ar.is_public,
+            inherited_public=not ar.is_public,
             public_magic_id=ar.public_magic_id,
             created_at=ar.created_at,
             updated_at=ar.updated_at,

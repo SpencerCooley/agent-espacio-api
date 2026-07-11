@@ -98,19 +98,7 @@ def is_folder_public(db: Session, folder: Folder) -> bool:
     return False
 
 
-def _is_folder_or_ancestor_public(db: Session, folder: Folder) -> bool:
-    """Check if a folder or any of its ancestors are public."""
-    if folder.is_public:
-        return True
-    current = folder
-    while current.parent_id:
-        parent = db.query(Folder).filter(Folder.id == current.parent_id).first()
-        if not parent:
-            break
-        if parent.is_public:
-            return True
-        current = parent
-    return False
+
 
 
 def is_asset_public(db: Session, asset: Asset) -> bool:
@@ -136,7 +124,7 @@ def is_asset_public(db: Session, asset: Asset) -> bool:
     # Parent folder or any ancestor is public
     if asset.folder_id:
         folder = db.query(Folder).filter(Folder.id == asset.folder_id).first()
-        if folder and _is_folder_or_ancestor_public(db, folder):
+        if folder and is_folder_public(db, folder):
             return True
     
     # Derived access: linked from a public artifact
@@ -169,7 +157,7 @@ def is_artifact_public(db: Session, artifact: Artifact) -> bool:
     # Parent folder or any ancestor is public
     if artifact.folder_id:
         folder = db.query(Folder).filter(Folder.id == artifact.folder_id).first()
-        if folder and _is_folder_or_ancestor_public(db, folder):
+        if folder and is_folder_public(db, folder):
             return True
     
     # Derived access: referenced by a public composition
@@ -271,11 +259,6 @@ def is_asset_linked_by_public_artifact(db: Session, asset_id: UUID) -> bool:
             if _scan_gallery_items_for_asset_id(gallery_items, asset_id_str):
                 return True
 
-            # Also check composer sections
-            sections = content.get('sections', [])
-            if _scan_composer_sections_for_asset_id(sections, asset_id_str):
-                return True
-
     # Also check artifacts in public folders
     # First get all public folders
     public_folders = db.query(Folder).filter(Folder.is_public == True).all()
@@ -302,11 +285,6 @@ def is_asset_linked_by_public_artifact(db: Session, asset_id: UUID) -> bool:
                 # Also check gallery items
                 gallery_items = content.get('items', [])
                 if _scan_gallery_items_for_asset_id(gallery_items, asset_id_str):
-                    return True
-
-                # Also check composer sections
-                sections = content.get('sections', [])
-                if _scan_composer_sections_for_asset_id(sections, asset_id_str):
                     return True
 
     return False
@@ -359,27 +337,6 @@ def _scan_gallery_items_for_asset_id(items, asset_id_str):
 
     for item in items:
         if isinstance(item, dict) and item.get('asset_id') == asset_id_str:
-            return True
-
-    return False
-
-
-def _scan_composer_sections_for_asset_id(sections, asset_id_str):
-    """
-    Scan composer sections for an artifact_id matching an asset.
-
-    Args:
-        sections: List of composer section dicts with 'artifact_id' keys
-        asset_id_str: Asset ID string to look for
-
-    Returns:
-        True if found, False otherwise
-    """
-    if not isinstance(sections, list):
-        return False
-
-    for section in sections:
-        if isinstance(section, dict) and section.get('artifact_id') == asset_id_str:
             return True
 
     return False
@@ -463,7 +420,7 @@ def search_public_folder_scope(
         Folder.is_root == False,
         Folder.name.ilike(search_pattern)
     ).order_by(Folder.name).limit(limit).all()
-    folder_results = [f for f in folder_results if _is_folder_or_ancestor_public(db, f)]
+    folder_results = [f for f in folder_results if is_folder_public(db, f)]
 
     # Search assets within scope that are publicly accessible
     asset_results = db.query(Asset).filter(
