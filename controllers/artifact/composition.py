@@ -49,12 +49,24 @@ def _serialize_item(item) -> Optional[Dict[str, Any]]:
 
 def _serialize_composer(composer: Artifact) -> Dict[str, Any]:
     """Serialize a composer artifact into a plain dict."""
+    from controllers.asset.signed_url import generate_signed_url
+    meta = composer.meta or {}
+    cover_asset_id = meta.get("cover_asset_id")
+    cover_url = None
+    if cover_asset_id:
+        try:
+            cover_url = generate_signed_url(cover_asset_id, size=512, expiry_seconds=3600)
+        except Exception:
+            pass
+
     return {
         "id": str(composer.id),
         "name": composer.name,
         "type": composer.type,
         "description": composer.description,
         "content": composer.content,
+        "meta": meta,
+        "cover_url": cover_url,
         "folder_id": str(composer.folder_id),
         "is_public": composer.is_public,
         "public_magic_id": str(composer.public_magic_id) if composer.public_magic_id else None,
