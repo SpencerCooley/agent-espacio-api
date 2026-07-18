@@ -78,10 +78,11 @@ def list_feed_items(
 
     if tag:
         # --- Tag mode: open discovery, no feed_items join ---
+        # Fetch extra candidates so public-status filtering doesn't fool has_more.
         candidates = (
             db.query(Artifact)
             .filter(Artifact.type == "composer")
-            .filter(Artifact.meta.op("?")(tag))
+            .filter(Artifact.meta.op("@>")({"tags": [tag]}))
             .order_by(desc(Artifact.updated_at))
             .offset(offset)
             .limit(limit + 10)
@@ -91,7 +92,7 @@ def list_feed_items(
         for artifact in candidates:
             if is_artifact_public(db, artifact):
                 items.append(_artifact_to_feed_dict(artifact))
-            if len(items) >= limit:
+            if len(items) >= limit + 1:
                 break
 
     else:
@@ -114,12 +115,11 @@ def list_feed_items(
                     sort_order=feed_item.sort_order,
                     featured_level=feed_item.featured_level,
                 ))
-            if len(items) >= limit:
+            if len(items) >= limit + 1:
                 break
 
         # Latest items (not featured) ordered by existing sort rules
         if len(items) < limit:
-            remaining = limit - len(items)
             latest_candidates = (
                 db.query(FeedItem, Artifact)
                 .join(Artifact, FeedItem.artifact_id == Artifact.id)
@@ -127,7 +127,7 @@ def list_feed_items(
                 .filter(FeedItem.featured_level == None)
                 .order_by(FeedItem.sort_order.desc(), FeedItem.updated_at.desc())
                 .offset(offset)
-                .limit(remaining + 10)
+                .limit(limit + 10)
                 .all()
             )
 
@@ -138,10 +138,11 @@ def list_feed_items(
                         sort_order=feed_item.sort_order,
                         featured_level=feed_item.featured_level,
                     ))
-                if len(items) >= limit:
+                if len(items) >= limit + 1:
                     break
 
-    has_more = len(items) == limit  # conservative
+    has_more = len(items) > limit
+    items = items[:limit]
 
     # Resolve public theme
     public_theme_pref = get_public_theme(db)
