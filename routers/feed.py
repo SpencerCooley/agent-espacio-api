@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from dependencies.dependencies import get_db, require_auth
-from controllers.feed import list_feed_items, add_to_feed, remove_from_feed, reorder_feed_item
+from controllers.feed import list_feed_items, add_to_feed, remove_from_feed, reorder_feed_item, set_featured_level
 from controllers.public import is_artifact_public
 from models.feed_item import FeedItem
 
@@ -63,6 +63,7 @@ async def get_feed_item_status(
         "id": str(feed_item.id),
         "artifact_id": str(feed_item.artifact_id),
         "sort_order": feed_item.sort_order,
+        "featured_level": feed_item.featured_level,
         "created_at": feed_item.created_at.isoformat() if feed_item.created_at else None,
         "updated_at": feed_item.updated_at.isoformat() if feed_item.updated_at else None,
     }
@@ -86,6 +87,7 @@ async def create_feed_item(
         "id": str(feed_item.id),
         "artifact_id": str(feed_item.artifact_id),
         "sort_order": feed_item.sort_order,
+        "featured_level": feed_item.featured_level,
         "created_at": feed_item.created_at.isoformat() if feed_item.created_at else None,
     }
 
@@ -132,4 +134,34 @@ async def update_feed_item_order(
         "id": str(feed_item.id),
         "artifact_id": str(feed_item.artifact_id),
         "sort_order": feed_item.sort_order,
+    }
+
+
+@router.put("/items/{artifact_id}/featured")
+async def update_feed_item_featured_level(
+    artifact_id: UUID,
+    featured_level: Optional[int] = Query(None, ge=0, le=3, description="Featured level: 1, 2, 3 to feature, or 0/None to clear"),
+    db: Session = Depends(get_db),
+    user=Depends(require_auth),
+):
+    """
+    Set or clear the featured level of a feed item.
+
+    Levels 1, 2, and 3 are exclusive featured slots. Setting a new item to an
+    occupied slot bumps the previous occupant to not featured (X). Passing 0
+    or None clears the featured level.
+
+    Requires authentication.
+    """
+    feed_item = set_featured_level(db, artifact_id, featured_level)
+    if not feed_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Feed item not found"
+        )
+    return {
+        "id": str(feed_item.id),
+        "artifact_id": str(feed_item.artifact_id),
+        "sort_order": feed_item.sort_order,
+        "featured_level": feed_item.featured_level,
     }

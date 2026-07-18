@@ -22,7 +22,7 @@ from controllers.themes import get_public_theme_definition
 from controllers.asset.signed_url import generate_signed_url
 
 
-def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None) -> Dict[str, Any]:
+def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None, featured_level: Optional[int] = None) -> Dict[str, Any]:
     """Serialize an artifact into a feed item dict."""
     meta = artifact.meta or {}
     cover_asset_id = meta.get("cover_asset_id")
@@ -43,6 +43,7 @@ def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None)
         "updated_at": artifact.updated_at.isoformat() if artifact.updated_at else None,
         "meta": meta,
         "sort_order": sort_order,
+        "featured_level": featured_level,
         "cover_url": cover_url,
     }
 
@@ -58,7 +59,9 @@ def list_feed_items(
 
     Two modes:
     1. No tag provided → curated main feed. Only artifacts explicitly added
-        to feed_items appear. Ordered by sort_order DESC, updated_at DESC.
+        to feed_items appear. Featured items (featured_level 1, 2, 3) are
+        returned first ordered by featured_level ASC. Remaining items are
+        ordered by sort_order DESC, updated_at DESC.
     2. Tag provided    → open tag discovery. Any publicly accessible composer
        with the tag in meta.tags appears. Ordered by updated_at DESC.
        Does NOT require the artifact to be in feed_items.
@@ -92,22 +95,51 @@ def list_feed_items(
                 break
 
     else:
-        # --- Main feed mode: strictly curated via feed_items ---
-        candidates = (
+        # --- Main feed mode: curated via feed_items with featured slots ---
+
+        # Featured items first (slots 1, 2, 3)
+        featured_candidates = (
             db.query(FeedItem, Artifact)
             .join(Artifact, FeedItem.artifact_id == Artifact.id)
             .filter(Artifact.type == "composer")
-            .order_by(FeedItem.sort_order.desc(), FeedItem.updated_at.desc())
-            .offset(offset)
-            .limit(limit + 10)
+            .filter(FeedItem.featured_level.in_([1, 2, 3]))
+            .order_by(FeedItem.featured_level.asc())
             .all()
         )
 
-        for feed_item, artifact in candidates:
+        for feed_item, artifact in featured_candidates:
             if is_artifact_public(db, artifact):
-                items.append(_artifact_to_feed_dict(artifact, feed_item.sort_order))
+                items.append(_artifact_to_feed_dict(
+                    artifact,
+                    sort_order=feed_item.sort_order,
+                    featured_level=feed_item.featured_level,
+                ))
             if len(items) >= limit:
                 break
+
+        # Latest items (not featured) ordered by existing sort rules
+        if len(items) < limit:
+            remaining = limit - len(items)
+            latest_candidates = (
+                db.query(FeedItem, Artifact)
+                .join(Artifact, FeedItem.artifact_id == Artifact.id)
+                .filter(Artifact.type == "composer")
+                .filter(FeedItem.featured_level == None)
+                .order_by(FeedItem.sort_order.desc(), FeedItem.updated_at.desc())
+                .offset(offset)
+                .limit(remaining + 10)
+                .all()
+            )
+
+            for feed_item, artifact in latest_candidates:
+                if is_artifact_public(db, artifact):
+                    items.append(_artifact_to_feed_dict(
+                        artifact,
+                        sort_order=feed_item.sort_order,
+                        featured_level=feed_item.featured_level,
+                    ))
+                if len(items) >= limit:
+                    break
 
     has_more = len(items) == limit  # conservative
 
@@ -203,6 +235,45 @@ def reorder_feed_item(db: Session, artifact_id: UUID, new_sort_order: int) -> Op
         return None
 
     feed_item.sort_order = new_sort_order
+    db.commit()
+    db.refresh(feed_item)
+    return feed_item
+
+
+def set_featured_level(db: Session, artifact_id: UUID, level: Optional[int]) -> Optional[FeedItem]:
+    """
+    Set or clear the featured level for a feed item.
+
+    Featured levels are exclusive slots: 1, 2, or 3. Setting a new item to an
+    occupied slot bumps the existing occupant to None (not featured / X).
+    Passing 0 or None clears the featured level.
+
+    Args:
+        db: Database session
+        artifact_id: Artifact UUID
+        level: 1, 2, 3 to feature, or 0/None to clear
+
+    Returns:
+        Updated FeedItem or None if not found
+    """
+    feed_item = db.query(FeedItem).filter(FeedItem.artifact_id == artifact_id).first()
+    if not feed_item:
+        return None
+
+    # Normalize: 0 or None means "not featured" (X)
+    normalized_level = None if level is None or level == 0 else level
+
+    if normalized_level in (1, 2, 3):
+        # Bump any existing occupant of this slot to None
+        existing = db.query(FeedItem).filter(
+            FeedItem.featured_level == normalized_level,
+            FeedItem.artifact_id != artifact_id,
+        ).first()
+        if existing:
+            existing.featured_level = None
+            db.add(existing)
+
+    feed_item.featured_level = normalized_level
     db.commit()
     db.refresh(feed_item)
     return feed_item
