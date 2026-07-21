@@ -9,7 +9,8 @@ RUN apt-get update && \
         libpq-dev \
         gcc \
         python3-dev \
-        ffmpeg && \
+        ffmpeg \
+        git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

@@ -30,5 +30,6 @@ from . import settings
 from . import themes
 from . import feed
 from . import ws
+from . import repos
 
-__all__ = ["ai_instructions", "health", "auth", "users", "api_keys", "folders", "assets", "artifacts", "public", "settings", "themes", "feed", "ws"]
+__all__ = ["ai_instructions", "health", "auth", "users", "api_keys", "folders", "assets", "artifacts", "public", "settings", "themes", "feed", "ws", "repos"]

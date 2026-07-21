@@ -23,6 +23,7 @@ from models.artifact import Artifact
 from models.theme import Theme
 from models.settings import Setting
 from models.feed_item import FeedItem
+from models.repo_ssh_key import RepoSshKey
 
 __all__ = [
     "Base",
@@ -37,4 +38,5 @@ __all__ = [
     "Theme",
     "Setting",
     "FeedItem",
+    "RepoSshKey",
 ]

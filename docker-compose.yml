@@ -116,10 +116,35 @@ services:
     networks:
       - agentespacio_network
 
+  git:
+    build:
+      context: .
+      dockerfile: Dockerfile.git
+    container_name: agentespacio_git
+    restart: always
+    command: ["sh", "-c", "if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then ssh-keygen -A; fi; exec /usr/sbin/sshd -D -e"]
+    ports:
+      - "2222:22"
+    volumes:
+      - ./storage/repos:/repos
+      - git_host_keys:/etc/ssh
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-agentespacio}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-agentespacio}
+      - POSTGRES_DB=${POSTGRES_DB:-agentespacio_db}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - agentespacio_network
+
 volumes:
   agentespacio_postgres_data:
   agentespacio_postgres_test_data:
   agentespacio_redis_data:
+  git_host_keys:
 
 networks:
   agentespacio_network:

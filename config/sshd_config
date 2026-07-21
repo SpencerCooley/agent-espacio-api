@@ -1,0 +1,17 @@
+Port 22
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+PasswordAuthentication no
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+UsePAM no
+
+# Query the database directly for authorized keys
+AuthorizedKeysCommand /usr/local/bin/ssh-auth.sh
+AuthorizedKeysCommandUser root
+
+AllowUsers git
+PermitRootLogin no
+PrintMotd no
+PrintLastLog no

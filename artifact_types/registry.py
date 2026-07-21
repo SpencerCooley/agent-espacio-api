@@ -1058,6 +1058,61 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
         },
         "icon": "auto_awesome_mosaic",
         "category": "publishing"
+    },
+    "repo": {
+        "key": "repo",
+        "name": "Repository",
+        "description": "A git repository for storing code, pages, and projects. Push files from your local machine and browse them in Espacio.",
+        "ai_instructions": (
+            "Use this artifact to create a git repository within Agent Espacio.\n\n"
+            "WHEN TO USE:\n"
+            "  - Storing code projects that will be built into static sites\n"
+            "  - Version-controlled content that needs git history\n"
+            "  - Projects that will later be built and served as web pages\n\n"
+            "WHEN NOT TO USE:\n"
+            "  - Simple text content (use note artifacts instead)\n"
+            "  - Binary file storage (use asset uploads instead)\n"
+            "  - Content that does not need version control\n\n"
+            "CREATING A REPOSITORY:\n"
+            "  1. Create the artifact via POST /artifacts with type: 'repo'\n"
+            "  2. The system initializes a bare git repository on disk\n"
+            "  3. Add your SSH public key via POST /users/me/ssh-keys\n"
+            "  4. Configure your local git remote:\n"
+            "     git remote add origin ssh://git@<host>:2222/repos/<artifact_id>.git\n"
+            "  5. Push your code: git push -u origin master\n\n"
+            "CONTENT SCHEMA:\n"
+            "  The content field stores build configuration for Phase 2:\n"
+            '  { "build_command": "npm run build", "output_dir": "dist" }\n\n'
+            "  In Phase 1, these fields are optional and unused.\n\n"
+            "IMPORTANT:\n"
+            "  - The repository is bare (no working tree). You push to it from your local machine.\n"
+            "  - Files are browsable via the Espacio UI and API.\n"
+            "  - Build and serve capabilities will be added in Phase 2.\n"
+            "  - Anyone with a registered SSH key can push to any repo in Phase 1."
+        ),
+        "content_schema": {
+            "type": "object",
+            "properties": {
+                "build_command": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Build command for Phase 2 (e.g., npm run build)"
+                },
+                "output_dir": {
+                    "type": "string",
+                    "default": "dist",
+                    "description": "Build output directory for Phase 2"
+                }
+            }
+        },
+        "example_content": {
+            "content": {
+                "build_command": "",
+                "output_dir": "dist"
+            }
+        },
+        "icon": "code",
+        "category": "development"
     }
 }
 

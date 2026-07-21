@@ -153,6 +153,7 @@ Currently supported:
 - **map** — Interactive geospatial map with viewport state, GeoJSON features (points, lines, polygons), and linked workspace items.
 - **gallery** — Curated image collection with captions, drag-and-drop reordering, and multiple public layout modes (grid, carousel, masonry).
 - **composer** — Curated story or collection that combines multiple artifacts in order. Like a blog post made of other artifacts. Cannot nest other composers.
+- **repo** — Git repository for storing code, pages, and projects. Push files from your local machine via SSH and browse them in the Espacio UI. Supports build/serve pipeline for static sites (Phase 2).
 
 ## 6. Creating Themes
 
