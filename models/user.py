@@ -34,6 +34,7 @@ class User(Base):
     folders = relationship("Folder", back_populates="created_by", cascade="all, delete-orphan")
     assets = relationship("Asset", back_populates="created_by", cascade="all, delete-orphan")
     artifacts = relationship("Artifact", back_populates="created_by", cascade="all, delete-orphan")
+    repo_ssh_keys = relationship("RepoSshKey", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, role={self.role})>"

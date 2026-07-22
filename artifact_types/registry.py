@@ -1076,7 +1076,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "CREATING A REPOSITORY:\n"
             "  1. Create the artifact via POST /artifacts with type: 'repo'\n"
             "  2. The system initializes a bare git repository on disk\n"
-            "  3. Add your SSH public key via POST /users/me/ssh-keys\n"
+            "  3. Add your SSH public key via POST /ssh-keys\n"
             "  4. Configure your local git remote:\n"
             "     git remote add origin ssh://git@<host>:2222/repos/<artifact_id>.git\n"
             "  5. Push your code: git push -u origin master\n\n"

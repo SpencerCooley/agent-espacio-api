@@ -4,6 +4,10 @@ Public view router.
 Unauthenticated endpoints for viewing publicly shared content:
 - GET /public/view/{magic_id} - View a public folder, asset, or artifact
 - GET /public/assets/{magic_id}/download - Download/stream a public asset (supports range requests)
+- GET /public/repo/{magic_id} - Public repo metadata
+- GET /public/repo/{magic_id}/tree - Public repo file tree
+- GET /public/repo/{magic_id}/files/{path} - Public repo file contents
+- GET /public/repo/{magic_id}/commits - Public repo commit history
 """
 from typing import Optional
 from uuid import UUID
@@ -445,4 +449,284 @@ async def public_composition(
             for s in result["sections"]
         ],
         "public_theme": public_theme_response,
+    }
+
+
+# ============================================================================
+# Public Repository Endpoints
+# ============================================================================
+
+import os
+import subprocess
+from typing import Optional, List, Dict, Any
+from uuid import UUID
+
+REPOS_DIR = os.path.join(os.environ.get("STORAGE_PATH", "/app/storage"), "repos")
+
+
+def _get_repo_path(artifact_id: UUID) -> str:
+    return os.path.join(REPOS_DIR, f"{artifact_id}.git")
+
+
+def _repo_exists(artifact_id: UUID) -> bool:
+    return os.path.exists(_get_repo_path(artifact_id))
+
+
+def _run_git_command(artifact_id: UUID, *args: str) -> subprocess.CompletedProcess:
+    repo_path = _get_repo_path(artifact_id)
+    cmd = ["git", "--git-dir", repo_path] + list(args)
+    return subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+
+def _get_repo_size(artifact_id: UUID) -> int:
+    repo_path = _get_repo_path(artifact_id)
+    total = 0
+    if os.path.exists(repo_path):
+        for dirpath, _dirnames, filenames in os.walk(repo_path):
+            for f in filenames:
+                total += os.path.getsize(os.path.join(dirpath, f))
+    return total
+
+
+def _resolve_public_repo(db: Session, magic_id: UUID):
+    """Resolve a magic_id to a public repo artifact. Returns (artifact, error_response)."""
+    item, kind = controllers.public.resolve_public_item(db, magic_id)
+    if not item or kind != "artifact" or item.type != "repo":
+        return None, HTTPException(status_code=404, detail="Public repository not found")
+    return item, None
+
+
+@router.get("/repo/{magic_id}")
+async def public_repo_metadata(magic_id: UUID, request: Request, db: Session = Depends(get_db)):
+    """Get public repository metadata."""
+    artifact, err = _resolve_public_repo(db, magic_id)
+    if err:
+        raise err
+
+    artifact_id = UUID(str(artifact.id))
+
+    # Build clone URL from request base URL
+    base_url = os.environ.get("PUBLIC_URL") or str(request.base_url).rstrip("/")
+    clone_url = f"{base_url}/git/{artifact_id}.git"
+
+    if not _repo_exists(artifact_id):
+        return {"name": artifact.name, "description": artifact.description, "commit_count": 0, "file_count": 0, "repo_size_bytes": 0, "last_commit": None, "clone_url": clone_url}
+
+    last_commit = None
+    result = _run_git_command(artifact_id, "log", "-1", "--format=%H|%s|%an <%ae>|%aI")
+    if result.returncode == 0 and result.stdout.strip():
+        parts = result.stdout.strip().split("|", 3)
+        if len(parts) >= 4:
+            last_commit = {"hash": parts[0][:7], "message": parts[1], "author": parts[2], "date": parts[3]}
+
+    commit_count = 0
+    result = _run_git_command(artifact_id, "rev-list", "--count", "HEAD")
+    if result.returncode == 0:
+        try:
+            commit_count = int(result.stdout.strip())
+        except ValueError:
+            pass
+
+    file_count = 0
+    result = _run_git_command(artifact_id, "ls-tree", "-r", "HEAD", "--name-only")
+    if result.returncode == 0:
+        file_count = len([l for l in result.stdout.strip().split("\n") if l])
+
+    return {
+        "name": artifact.name,
+        "description": artifact.description,
+        "commit_count": commit_count,
+        "file_count": file_count,
+        "repo_size_bytes": _get_repo_size(artifact_id),
+        "last_commit": last_commit,
+        "clone_url": clone_url,
+    }
+
+
+@router.get("/repo/{magic_id}/tree")
+async def public_repo_tree(magic_id: UUID, ref: str = "HEAD", path: str = "", db: Session = Depends(get_db)):
+    """Get file tree for a public repository."""
+    artifact, err = _resolve_public_repo(db, magic_id)
+    if err:
+        raise err
+
+    artifact_id = UUID(str(artifact.id))
+    if not _repo_exists(artifact_id):
+        raise HTTPException(status_code=404, detail="Repository not initialized")
+
+    tree_path = f"{ref}:{path}" if path else ref
+    result = _run_git_command(artifact_id, "ls-tree", "-l", tree_path)
+    if result.returncode != 0:
+        raise HTTPException(status_code=404, detail=f"Path not found: {path} at ref {ref}")
+
+    items = []
+    for line in result.stdout.strip().split("\n"):
+        if not line:
+            continue
+        parts = line.split("\t", 1)
+        if len(parts) != 2:
+            continue
+        meta, name = parts
+        meta_parts = meta.split()
+        if len(meta_parts) < 4:
+            continue
+        item_type = meta_parts[1]
+        size_str = meta_parts[3] if len(meta_parts) > 3 else None
+        item_path = f"{path}/{name}" if path else name
+        items.append({"name": name, "path": item_path, "type": item_type, "size": int(size_str) if size_str and item_type == "blob" else None})
+
+    return {"ref": ref, "items": items}
+
+
+@router.get("/repo/{magic_id}/files/{file_path:path}")
+async def public_repo_file(magic_id: UUID, file_path: str, ref: str = "HEAD", db: Session = Depends(get_db)):
+    """Get raw file contents from a public repository."""
+    artifact, err = _resolve_public_repo(db, magic_id)
+    if err:
+        raise err
+
+    artifact_id = UUID(str(artifact.id))
+    if not _repo_exists(artifact_id):
+        raise HTTPException(status_code=404, detail="Repository not initialized")
+
+    result = _run_git_command(artifact_id, "cat-file", "-t", f"{ref}:{file_path}")
+    if result.returncode != 0:
+        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+
+    obj_type = result.stdout.strip()
+    if obj_type != "blob":
+        raise HTTPException(status_code=400, detail=f"Path is not a file: {file_path}")
+
+    result = _run_git_command(artifact_id, "cat-file", "-s", f"{ref}:{file_path}")
+    file_size = 0
+    if result.returncode == 0:
+        try:
+            file_size = int(result.stdout.strip())
+        except ValueError:
+            pass
+
+    result = _run_git_command(artifact_id, "show", f"{ref}:{file_path}")
+    if result.returncode != 0:
+        raise HTTPException(status_code=500, detail="Failed to read file contents")
+
+    content = result.stdout
+    is_binary = '\x00' in content
+    if is_binary:
+        content = "[Binary file - cannot display]"
+
+    return {"path": file_path, "ref": ref, "content": content, "size": file_size, "is_binary": is_binary}
+
+
+@router.get("/repo/{magic_id}/commits")
+async def public_repo_commits(magic_id: UUID, ref: str = "HEAD", limit: int = 50, db: Session = Depends(get_db)):
+    """Get commit history for a public repository."""
+    artifact, err = _resolve_public_repo(db, magic_id)
+    if err:
+        raise err
+
+    artifact_id = UUID(str(artifact.id))
+    if not _repo_exists(artifact_id):
+        raise HTTPException(status_code=404, detail="Repository not initialized")
+
+    limit = min(limit, 200)
+    result = _run_git_command(artifact_id, "log", ref, f"--max-count={limit}", "--format=%H|%s|%an <%ae>|%aI")
+
+    commits = []
+    if result.returncode == 0:
+        for line in result.stdout.strip().split("\n"):
+            if not line:
+                continue
+            parts = line.split("|", 3)
+            if len(parts) >= 4:
+                commits.append({"hash": parts[0][:7], "message": parts[1], "author": parts[2], "date": parts[3]})
+
+    return {"commits": commits}
+
+
+@router.get("/repo/{magic_id}/commits/{commit_hash}")
+async def public_repo_commit_detail(magic_id: UUID, commit_hash: str, db: Session = Depends(get_db)):
+    """Get detailed info for a single commit, including file diffs."""
+    artifact, err = _resolve_public_repo(db, magic_id)
+    if err:
+        raise err
+
+    artifact_id = UUID(str(artifact.id))
+    if not _repo_exists(artifact_id):
+        raise HTTPException(status_code=404, detail="Repository not initialized")
+
+    result = _run_git_command(artifact_id, "cat-file", "-t", commit_hash)
+    if result.returncode != 0:
+        raise HTTPException(status_code=404, detail=f"Commit not found: {commit_hash}")
+
+    result = _run_git_command(artifact_id, "log", "-1", "--format=%H|%s|%an <%ae>|%aI|%P", commit_hash)
+    if result.returncode != 0 or not result.stdout.strip():
+        raise HTTPException(status_code=500, detail="Failed to read commit")
+
+    parts = result.stdout.strip().split("|", 4)
+    full_hash = parts[0]
+    message = parts[1] if len(parts) > 1 else ""
+    author = parts[2] if len(parts) > 2 else ""
+    date = parts[3] if len(parts) > 3 else ""
+    parent_hash = parts[4][:7] if len(parts) > 4 and parts[4] else None
+
+    result = _run_git_command(artifact_id, "diff", "--stat-width=200", "--patch", f"{commit_hash}~1", commit_hash)
+    if result.returncode != 0:
+        result = _run_git_command(artifact_id, "diff", "--stat-width=200", "--patch", "--root", commit_hash)
+
+    files = []
+    total_additions = 0
+    total_deletions = 0
+
+    if result.returncode == 0 and result.stdout.strip():
+        raw_diff = result.stdout
+        current_file = None
+        current_status = "modified"
+        current_lines = []
+        current_additions = 0
+        current_deletions = 0
+
+        def _save_file():
+            if current_file:
+                files.append({"path": current_file, "status": current_status, "additions": current_additions, "deletions": current_deletions, "patch": "\n".join(current_lines)})
+
+        for line in raw_diff.split("\n"):
+            if line.startswith("diff --git"):
+                _save_file()
+                path_parts = line.split(" b/", 1)
+                current_file = path_parts[1] if len(path_parts) > 1 else "unknown"
+                current_status = "modified"
+                current_lines = [line]
+                current_additions = 0
+                current_deletions = 0
+            elif line.startswith("new file"):
+                current_status = "added"
+                current_lines.append(line)
+            elif line.startswith("deleted file"):
+                current_status = "deleted"
+                current_lines.append(line)
+            elif line.startswith("--- ") or line.startswith("+++ ") or line.startswith("@@"):
+                current_lines.append(line)
+            elif line.startswith("+") and not line.startswith("+++"):
+                current_additions += 1
+                total_additions += 1
+                current_lines.append(line)
+            elif line.startswith("-") and not line.startswith("---"):
+                current_deletions += 1
+                total_deletions += 1
+                current_lines.append(line)
+            else:
+                current_lines.append(line)
+
+        _save_file()
+
+    return {
+        "hash": full_hash,
+        "short_hash": full_hash[:7],
+        "message": message,
+        "author": author,
+        "date": date,
+        "parent_hash": parent_hash,
+        "files": files,
+        "total_additions": total_additions,
+        "total_deletions": total_deletions,
     }

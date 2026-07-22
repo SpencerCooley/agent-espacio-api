@@ -36,8 +36,11 @@ REPOS_DIR = os.path.join(STORAGE_PATH, "repos")
 # ============================================================================
 
 class RepoMetadataResponse(BaseModel):
+    name: str = Field(..., description="Repository name")
+    description: Optional[str] = Field(None, description="Repository description")
     artifact_id: str = Field(..., description="Artifact UUID")
     git_remote_url: str = Field(..., description="Git SSH remote URL")
+    clone_url: str = Field(default="", description="Git HTTP clone URL for public repos")
     default_branch: str = Field(default="master", description="Default branch name")
     last_commit: Optional[Dict[str, Any]] = Field(None, description="Last commit info")
     commit_count: int = Field(default=0, description="Total commits")
@@ -66,6 +69,26 @@ class RepoCommit(BaseModel):
 
 class RepoCommitsResponse(BaseModel):
     commits: List[RepoCommit] = Field(default_factory=list, description="Commit history")
+
+
+class RepoDiffFile(BaseModel):
+    path: str = Field(..., description="File path")
+    status: str = Field(..., description="'added', 'deleted', 'modified', or 'renamed'")
+    additions: int = Field(default=0, description="Lines added")
+    deletions: int = Field(default=0, description="Lines deleted")
+    patch: Optional[str] = Field(None, description="Unified diff patch")
+
+
+class RepoCommitDetailResponse(BaseModel):
+    hash: str = Field(..., description="Full commit SHA")
+    short_hash: str = Field(..., description="7-char short SHA")
+    message: str = Field(..., description="Commit message")
+    author: str = Field(..., description="Author name and email")
+    date: str = Field(..., description="Commit date ISO string")
+    parent_hash: Optional[str] = Field(None, description="Parent commit short SHA")
+    files: List[RepoDiffFile] = Field(default_factory=list, description="Changed files")
+    total_additions: int = Field(default=0, description="Total lines added")
+    total_deletions: int = Field(default=0, description="Total lines deleted")
 
 
 class RepoFileResponse(BaseModel):
@@ -149,12 +172,21 @@ async def get_repo_metadata(
     if api_host in ("0.0.0.0", "127.0.0.1"):
         api_host = "localhost"
     git_remote_url = f"ssh://git@{api_host}:2222/repos/{artifact_id}.git"
+
+    # Build HTTP clone URL for public repos
+    public_url = os.environ.get("PUBLIC_URL", "")
+    if not public_url:
+        public_url = f"https://{api_host}" if api_host != "localhost" else "http://localhost:8000"
+    clone_url = f"{public_url}/git/{artifact_id}.git"
     
     # Check if repo exists on disk
     if not _repo_exists(artifact_id):
         return RepoMetadataResponse(
+            name=artifact.name,
+            description=artifact.description,
             artifact_id=str(artifact_id),
             git_remote_url=git_remote_url,
+            clone_url=clone_url,
             default_branch="master",
             last_commit=None,
             commit_count=0,
@@ -194,8 +226,11 @@ async def get_repo_metadata(
     repo_size = _get_repo_size(artifact_id)
     
     return RepoMetadataResponse(
+        name=artifact.name,
+        description=artifact.description,
         artifact_id=str(artifact_id),
         git_remote_url=git_remote_url,
+        clone_url=clone_url,
         default_branch="master",
         last_commit=last_commit,
         commit_count=commit_count,
@@ -443,4 +478,121 @@ async def get_repo_commits(
     
     return RepoCommitsResponse(
         commits=commits,
+    )
+
+
+@router.get("/{artifact_id}/repo/commits/{commit_hash}", response_model=RepoCommitDetailResponse)
+async def get_repo_commit_detail(
+    artifact_id: UUID,
+    commit_hash: str,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Get detailed info for a single commit, including file diffs.
+
+    - **commit_hash**: Full or short commit SHA
+    """
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    if artifact.type != "repo":
+        raise HTTPException(status_code=400, detail="Artifact is not a repository")
+    if not _repo_exists(artifact_id):
+        raise HTTPException(status_code=404, detail="Repository not initialized yet")
+
+    # Validate commit exists
+    result = _run_git_command(artifact_id, "cat-file", "-t", commit_hash)
+    if result.returncode != 0:
+        raise HTTPException(status_code=404, detail=f"Commit not found: {commit_hash}")
+
+    # Get commit metadata
+    result = _run_git_command(
+        artifact_id, "log", "-1",
+        "--format=%H|%s|%an <%ae>|%aI|%P", commit_hash
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        raise HTTPException(status_code=500, detail="Failed to read commit")
+
+    parts = result.stdout.strip().split("|", 4)
+    full_hash = parts[0]
+    message = parts[1] if len(parts) > 1 else ""
+    author = parts[2] if len(parts) > 2 else ""
+    date = parts[3] if len(parts) > 3 else ""
+    parent_hash = parts[4][:7] if len(parts) > 4 and parts[4] else None
+
+    # Get diff stat + patch
+    result = _run_git_command(
+        artifact_id, "diff", "--stat-width=200", "--patch",
+        f"{commit_hash}~1", commit_hash
+    )
+    # First commit has no parent — diff against empty tree
+    if result.returncode != 0:
+        result = _run_git_command(
+            artifact_id, "diff", "--stat-width=200", "--patch",
+            "--root", commit_hash
+        )
+
+    files = []
+    total_additions = 0
+    total_deletions = 0
+
+    if result.returncode == 0 and result.stdout.strip():
+        raw_diff = result.stdout
+        current_file = None
+        current_status = "modified"
+        current_lines: list[str] = []
+        current_additions = 0
+        current_deletions = 0
+
+        def _save_file():
+            if current_file:
+                files.append(RepoDiffFile(
+                    path=current_file,
+                    status=current_status,
+                    additions=current_additions,
+                    deletions=current_deletions,
+                    patch="\n".join(current_lines),
+                ))
+
+        for line in raw_diff.split("\n"):
+            if line.startswith("diff --git"):
+                _save_file()
+                diff_parts = line.split(" b/", 1)
+                current_file = diff_parts[1] if len(diff_parts) > 1 else "unknown"
+                current_status = "modified"
+                current_lines = [line]
+                current_additions = 0
+                current_deletions = 0
+            elif line.startswith("new file"):
+                current_status = "added"
+                current_lines.append(line)
+            elif line.startswith("deleted file"):
+                current_status = "deleted"
+                current_lines.append(line)
+            elif line.startswith("--- ") or line.startswith("+++ ") or line.startswith("@@"):
+                current_lines.append(line)
+            elif line.startswith("+") and not line.startswith("+++"):
+                current_additions += 1
+                total_additions += 1
+                current_lines.append(line)
+            elif line.startswith("-") and not line.startswith("---"):
+                current_deletions += 1
+                total_deletions += 1
+                current_lines.append(line)
+            else:
+                current_lines.append(line)
+
+        _save_file()
+
+    return RepoCommitDetailResponse(
+        hash=full_hash,
+        short_hash=full_hash[:7],
+        message=message,
+        author=author,
+        date=date,
+        parent_hash=parent_hash,
+        files=files,
+        total_additions=total_additions,
+        total_deletions=total_deletions,
     )

@@ -14,6 +14,8 @@ RUN adduser -D -s /usr/bin/git-shell git && \
 
 RUN ln -s /repos /home/git/repos
 
+RUN git config --system --add safe.directory '*'
+
 COPY config/sshd_config /etc/ssh/sshd_config
 COPY scripts/ssh-auth.sh /usr/local/bin/ssh-auth.sh
 RUN chmod 755 /usr/local/bin/ssh-auth.sh

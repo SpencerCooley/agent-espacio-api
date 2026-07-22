@@ -31,6 +31,8 @@ def _init_bare_repo(artifact_id: UUID) -> None:
     with open(hook_path, "w") as f:
         f.write("#!/bin/bash\n# Phase 2: trigger build here\n")
     os.chmod(hook_path, 0o755)
+    # Ensure the git user in the SSH container can write to this repo
+    subprocess.run(["chmod", "-R", "a+w", repo_path], check=True, capture_output=True)
 
 
 def _remove_bare_repo(artifact_id: UUID) -> None:

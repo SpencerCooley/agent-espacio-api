@@ -15,6 +15,9 @@ mkdir -p "$STORAGE_PATH/assets"
 mkdir -p "$STORAGE_PATH/temp"
 echo "Storage directories ready at $STORAGE_PATH"
 
+# Allow git to operate on repos owned by different users (git container vs API container)
+git config --global --add safe.directory '*'
+
 echo "Starting application"
 
 # Start the FastAPI application

@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import ai_instructions, health, auth, users, api_keys, folders, assets, artifacts, public, settings, themes, ws, feed, repos
+from routers import ai_instructions, health, auth, users, api_keys, ssh_keys, folders, assets, artifacts, public, settings, themes, ws, feed, repos, git_http
 from services import events
 import routers.ws as ws_router
 
@@ -27,6 +27,7 @@ app.include_router(ai_instructions.router)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(ssh_keys.router)
 app.include_router(api_keys.router)
 app.include_router(folders.router)
 app.include_router(assets.router)
@@ -36,6 +37,7 @@ app.include_router(settings.router)
 app.include_router(themes.router)
 app.include_router(feed.router)
 app.include_router(repos.router)
+app.include_router(git_http.router)
 app.include_router(ws.router)
 
 # Start event listener on startup
