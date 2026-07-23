@@ -1,4 +1,5 @@
 import asyncio
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -14,11 +15,21 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS middleware
+# CORS middleware — configurable origins for production
+# CORS_ORIGINS env var: comma-separated list, e.g. "https://app.example.com,https://www.example.com"
+# Default: allow all origins (development mode)
+_cors_origins = os.environ.get("CORS_ORIGINS", "*")
+if _cors_origins == "*":
+    allow_origins = ["*"]
+    allow_credentials = False  # Cannot use * with credentials
+else:
+    allow_origins = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+    allow_credentials = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allow_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
