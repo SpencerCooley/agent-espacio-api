@@ -153,9 +153,52 @@ Currently supported:
 - **map** — Interactive geospatial map with viewport state, GeoJSON features (points, lines, polygons), and linked workspace items.
 - **gallery** — Curated image collection with captions, drag-and-drop reordering, and multiple public layout modes (grid, carousel, masonry).
 - **composer** — Curated story or collection that combines multiple artifacts in order. Like a blog post made of other artifacts. Cannot nest other composers.
-- **repo** — Git repository for storing code, pages, and projects. Push files from your local machine via SSH and browse them in the Espacio UI. Supports build/serve pipeline for static sites (Phase 2).
+- **repo** — Git repository for storing code, pages, and projects. Push files from your local machine via SSH and browse them in the Espacio UI. Supports static site publishing for embeddable modules.
 
-## 6. Creating Themes
+## 6. Static Site Publishing (Repo Artifacts)
+
+Repo artifacts can be published as static sites served from `/published/{slug}/`. This is designed for **self-contained HTML modules** — interactive charts, slideshows, motion graphics, data visualizations, or any rich content that should be embeddable in compositions or viewable publicly.
+
+### What Works
+- **Plain HTML/CSS/JS** — Single file or multi-file modules. No build step needed. Just push files and click Deploy.
+- **Vite** — Configure `base: './'` in `vite.config.js` so all asset paths are relative. Build outputs to `dist/` (or your configured output directory).
+- **Any build tool that generates relative paths** — The key requirement is that all internal asset references (CSS, JS, images, fonts) use relative paths (`./` or `../`) so they work when served from a subdirectory like `/published/my-slug/`.
+
+### What Does NOT Work
+- **Next.js static export** — Next.js generates absolute paths (`/_next/static/...`) that cannot be served from a subdirectory. It requires either root-level deployment or a `basePath` configuration that is not compatible with this system. Use Vite or plain HTML instead.
+- **Tools that hardcode domain roots** — Any build tool that emits absolute paths starting with `/` will break. The system assumes modules are subdirectory-agnostic.
+
+### Workflow
+1. Create a repo artifact in Agent Espacio (or use an existing one)
+2. Clone it locally via SSH: `git clone ssh://git@localhost:2222/repos/{artifact_id}.git`
+3. Write your module (HTML, CSS, JS, or a Vite project with `base: './'`)
+4. Push: `git push origin main`
+5. In the Espacio UI, click the gear icon on the repo artifact, choose "Static Site", configure a slug, optionally add a build command (e.g., `npm run build`) and output directory (e.g., `dist`), then save.
+6. Click "Deploy" in the header. The system clones the repo, optionally runs the build, and copies the output to `/published/{slug}/`.
+7. The site is now accessible at `https://cooleylabs.com/published/{slug}/` (or your configured `PUBLIC_URL`)
+
+### Render Modes
+- **Embedded** — Renders inside an iframe with a branded navigation bar. Best for compositions. The module runs in a sandboxed iframe.
+- **Direct** — Redirects visitors directly to the published URL. No Espacio UI shown. Best for standalone sharing.
+- **Repository + Site Link** — Shows the normal repo view (code browser) with a "View Site" link. Best when you want visitors to see the source code first.
+
+### Public Code Access
+- By default, published static sites (embedded/direct) do NOT allow public access to the repo code or cloning.
+- Toggle "Allow public code view" in settings to enable a "View Code" link that shows the repo browser.
+- When enabled, anyone can view the repo via `?repo_view=true` on the public URL.
+- **Clone access** is blocked unless "Allow public code view" is enabled. The system checks this before serving git clone requests over HTTP.
+
+### Use Cases
+- **Interactive data visualizations** — D3.js, Chart.js, or Three.js modules embedded in a composer story
+- **Motion graphics** — CSS animations or canvas-based animations that Playwright can screen-record for Instagram Reels
+- **Slideshows** — HTML-based presentations with navigation, embedded in data reports
+- **Small widgets** — Interactive calculators, maps, or charts that live inside compositions
+- **Prototypes** — Quick HTML/CSS/JS experiments shared as public URLs
+
+### Key Philosophy
+Agent Espacio provides the hosting URL. All compute (screen recording, video editing, asset generation) happens locally on the agent's machine using tools like Playwright and FFmpeg. No processing happens on the server.
+
+## 8. Creating Themes
 
 Themes define the visual appearance of the workspace. They are stored in the database and drive both the admin panel and public page styling. Each theme has a `light_definition` and `dark_definition` containing full MUI theme configurations (palette, typography, component overrides).
 
@@ -210,7 +253,7 @@ PUT    ${AGENT_ESPACIO_API}/themes/{theme_id}
 DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 ```
 
-## 7. Important Rules
+## 8. Important Rules
 
 - Folder names are not unique (like a normal filesystem)
 - Deleting a folder recursively deletes ALL contents inside it (subfolders, assets, artifacts)
@@ -221,7 +264,7 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 - Items in a folder are always sorted alphabetically by name
 - **Prefer search over recursive listing** — When looking for a specific item, use `GET /folders/{id}/search?q=...` instead of walking the folder tree
 
-## 8. Common Workflows
+## 9. Common Workflows
 
 ### Create a project with a note
 1. Create folder: POST /folders {"name": "Project Alpha", "parent_id": "..."}
@@ -244,7 +287,7 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 2. Search: GET /public/search/{public_magic_id}?q=search-term
 3. No authentication needed — only public items are returned
 
-## 9. API Endpoints Reference
+## 10. API Endpoints Reference
 
 ### Folders
 - GET /folders — List folder tree
@@ -275,6 +318,23 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 - DELETE /artifacts/{id} — Delete artifact
 - GET /artifacts/docs — List all artifact type definitions
 - GET /artifacts/docs/{type_key} — Get specific artifact type docs
+
+### Repositories (Repo Artifacts)
+- GET /artifacts/{id}/repo — Repo metadata (commits, file count, size, publish config)
+- GET /artifacts/{id}/repo/tree?path=... — File tree at HEAD
+- GET /artifacts/{id}/repo/files/{path} — Raw file contents
+- GET /artifacts/{id}/repo/commits — Commit history
+- GET /artifacts/{id}/publish — Get publish settings
+- PUT /artifacts/{id}/publish — Update publish settings (enable/disable, slug, render mode, build command, output directory, auto-deploy, allow_public_code_view)
+- DELETE /artifacts/{id}/publish — Disable publishing and remove published files
+- POST /artifacts/{id}/deploy — Trigger a manual deploy (runs Celery task)
+- GET /artifacts/{id}/deploy/status — Get deploy status
+
+### Public Repository Endpoints (No Auth)
+- GET /public/repo/{magic_id} — Public repo metadata
+- GET /public/repo/{magic_id}/tree — Public file tree
+- GET /public/repo/{magic_id}/files/{path} — Public file contents
+- GET /public/repo/{magic_id}/commits — Public commit history
 
 ### Themes
 - GET /themes — List all themes (public, no auth)

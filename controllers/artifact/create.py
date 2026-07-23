@@ -26,10 +26,19 @@ def _init_bare_repo(artifact_id: UUID) -> None:
         check=True,
         capture_output=True,
     )
-    # Create post-receive hook placeholder for Phase 2 build trigger
+    # Create post-receive hook to trigger auto-deploy
     hook_path = os.path.join(repo_path, "hooks", "post-receive")
     with open(hook_path, "w") as f:
-        f.write("#!/bin/bash\n# Phase 2: trigger build here\n")
+        f.write(f"""#!/bin/bash
+# Auto-deploy hook for Agent Espacio static sites
+# Reads pushed refs and notifies the API to trigger a build if auto_deploy is enabled
+while read oldrev newrev refname; do
+  ARTIFACT_ID="{artifact_id}"
+  curl -s -X POST "http://api:8000/internal/deploy/${{ARTIFACT_ID}}" \\
+    -H "Content-Type: application/json" \\
+    -d '{{"ref": "${{newrev}}"}}' &
+done
+""")
     os.chmod(hook_path, 0o755)
     # Ensure the git user in the SSH container can write to this repo
     subprocess.run(["chmod", "-R", "a+w", repo_path], check=True, capture_output=True)

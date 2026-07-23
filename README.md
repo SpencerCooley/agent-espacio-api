@@ -94,6 +94,51 @@ curl http://localhost:8000/health \
 - `DELETE /api-keys/{id}` - Revoke API key
 - `POST /api-keys/{id}/activate` - Reactivate revoked key
 
+### Folders
+- `GET /folders` - List folder tree
+- `POST /folders` - Create folder
+- `GET /folders/{id}` - Get folder details
+- `GET /folders/{id}/contents` - Get subfolders + assets + artifacts
+- `GET /folders/{id}/search?q=term` - Search within folder + descendants
+- `PUT /folders/{id}` - Rename/move folder
+- `DELETE /folders/{id}` - Recursive delete
+
+### Assets
+- `GET /assets` - List assets
+- `POST /assets/upload` - Upload file (multipart/form-data)
+- `GET /assets/{id}` - Get asset metadata
+- `GET /assets/{id}/download` - Download file
+- `DELETE /assets/{id}` - Delete asset
+
+### Artifacts
+- `GET /artifacts` - List artifacts
+- `POST /artifacts` - Create artifact
+- `GET /artifacts/{id}` - Get artifact
+- `PUT /artifacts/{id}` - Update artifact
+- `DELETE /artifacts/{id}` - Delete artifact
+- `GET /artifacts/docs` - List artifact type definitions
+- `GET /artifacts/docs/{type_key}` - Get specific type docs
+
+### Repositories (Repo Artifacts)
+- `GET /artifacts/{id}/repo` - Repo metadata (commits, files, publish config)
+- `GET /artifacts/{id}/repo/tree` - File tree
+- `GET /artifacts/{id}/repo/files/{path}` - Raw file contents
+- `GET /artifacts/{id}/repo/commits` - Commit history
+- `GET /artifacts/{id}/publish` - Get publish settings
+- `PUT /artifacts/{id}/publish` - Update publish settings
+- `DELETE /artifacts/{id}/publish` - Disable publishing
+- `POST /artifacts/{id}/deploy` - Trigger manual deploy
+- `GET /artifacts/{id}/deploy/status` - Get deploy status
+
+### Public (No Authentication)
+- `GET /public/view/{magic_id}` - View public folder/asset/artifact
+- `GET /public/assets/{magic_id}/download` - Download public asset
+- `GET /public/search/{magic_id}?q=term` - Search public folder
+- `GET /public/repo/{magic_id}` - Public repo metadata
+- `GET /public/repo/{magic_id}/tree` - Public file tree
+- `GET /public/repo/{magic_id}/files/{path}` - Public file contents
+- `GET /public/repo/{magic_id}/commits` - Public commit history
+
 ## Architecture
 
 ```
@@ -167,14 +212,28 @@ curl http://localhost:8000/users/me \
 - **No Email**: Password resets handled by admin (no email flow)
 - **Self-hosted**: All data stays on your VPS
 
+## Static Site Publishing (Repo Artifacts)
+
+Repo artifacts support static site publishing for embeddable modules. This is designed for self-contained HTML/CSS/JS modules — interactive charts, slideshows, motion graphics, data visualizations — that should be embeddable in compositions or viewable publicly.
+
+### What Works
+- **Plain HTML/CSS/JS** — No build step needed. Just push files and deploy.
+- **Vite** — Configure `base: './'` in `vite.config.js` for relative paths. Build output to `dist/` (or your configured output directory).
+- **Any tool that generates relative paths** — The key requirement is that all internal asset references use relative paths (`./` or `../`) so they work when served from a subdirectory like `/published/{slug}/`.
+
+### What Does NOT Work
+- **Next.js static export** — Generates absolute paths (`/_next/static/...`) that cannot be served from a subdirectory. Use Vite or plain HTML instead.
+- **Tools that hardcode domain roots** — Any build tool that emits absolute paths starting with `/` will break.
+
+### Philosophy
+Agent Espacio provides the hosting URL. All compute (screen recording, video editing, asset generation) happens locally on the agent's machine using tools like Playwright and FFmpeg. No processing happens on the server.
+
 ## Next Steps
 
-This is the **auth foundation**. Future phases will add:
-
-- 📁 Folder/file management system
-- 🎨 Artifact types (maps, charts, documents)
+- 📁 Folder/file management system (implemented)
+- 🎨 Artifact types (maps, charts, documents, repos) (implemented)
 - 🔄 Real-time collaboration
-- 🌐 React frontend
+- 🌐 React frontend (implemented)
 
 ## License
 

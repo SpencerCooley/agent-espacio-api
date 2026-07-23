@@ -6,14 +6,20 @@ Endpoints for browsing git repository artifacts:
 - GET /artifacts/{id}/repo/tree - File tree
 - GET /artifacts/{id}/repo/files/{path} - Raw file contents
 - GET /artifacts/{id}/repo/commits - Commit history
+- GET/PUT/DELETE /artifacts/{id}/publish - Publishing settings
+- POST /artifacts/{id}/deploy - Manual deploy
+- GET /artifacts/{id}/deploy/status - Deploy status
 """
 import os
+import re
+import shutil
 import subprocess
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel, Field
 
 from dependencies.dependencies import get_db, require_auth
@@ -29,11 +35,28 @@ router = APIRouter(
 
 STORAGE_PATH = os.environ.get("STORAGE_PATH", "/app/storage")
 REPOS_DIR = os.path.join(STORAGE_PATH, "repos")
+PUBLISHED_DIR = os.path.join(STORAGE_PATH, "published")
 
 
 # ============================================================================
 # Pydantic Response Models
 # ============================================================================
+
+
+class PublishConfig(BaseModel):
+    """Publishing configuration stored in artifact meta."""
+    enabled: bool = Field(default=False, description="Whether publishing is enabled")
+    slug: str = Field(default="", description="URL slug for the published site")
+    render_mode: str = Field(default="embedded", description="How the public view renders: 'embedded', 'direct', or 'repo_link'")
+    build_command: str = Field(default="", description="Build command (e.g. 'npm run build'). Empty = serve as-is")
+    output_dir: str = Field(default="dist", description="Build output directory relative to repo root")
+    auto_deploy: bool = Field(default=True, description="Automatically deploy on push")
+    allow_public_code_view: bool = Field(default=False, description="Allow public access to repo code via ?repo_view=true")
+    status: str = Field(default="idle", description="Current deploy status: 'idle', 'building', 'deployed', 'failed'")
+    last_deploy_at: Optional[str] = Field(None, description="ISO timestamp of last deploy")
+    last_deploy_commit: Optional[str] = Field(None, description="Short SHA of last deployed commit")
+    last_deploy_log: Optional[str] = Field(None, description="Truncated build log from last deploy")
+
 
 class RepoMetadataResponse(BaseModel):
     name: str = Field(..., description="Repository name")
@@ -46,6 +69,7 @@ class RepoMetadataResponse(BaseModel):
     commit_count: int = Field(default=0, description="Total commits")
     file_count: int = Field(default=0, description="Files at HEAD")
     repo_size_bytes: int = Field(default=0, description="Size of bare repo on disk")
+    publish: Optional[PublishConfig] = Field(None, description="Publish settings (if configured)")
 
 
 class RepoTreeItem(BaseModel):
@@ -100,6 +124,45 @@ class RepoFileResponse(BaseModel):
 
 
 # ============================================================================
+# Publish / Deploy Models
+# ============================================================================
+
+
+class PublishSettingsRequest(BaseModel):
+    """Request to update publish settings."""
+    enabled: Optional[bool] = Field(None)
+    slug: Optional[str] = Field(None)
+    render_mode: Optional[str] = Field(None)
+    build_command: Optional[str] = Field(None)
+    output_dir: Optional[str] = Field(None)
+    auto_deploy: Optional[bool] = Field(None)
+    allow_public_code_view: Optional[bool] = Field(None)
+
+
+class PublishSettingsResponse(BaseModel):
+    """Response with current publish settings."""
+    enabled: bool
+    slug: str
+    render_mode: str
+    build_command: str
+    output_dir: str
+    auto_deploy: bool
+    allow_public_code_view: bool
+    status: str
+    last_deploy_at: Optional[str]
+    last_deploy_commit: Optional[str]
+    site_url: str = Field(default="", description="Full URL to the published site")
+
+
+class DeployStatusResponse(BaseModel):
+    """Response for deploy status."""
+    status: str
+    last_deploy_at: Optional[str]
+    last_deploy_commit: Optional[str]
+    last_deploy_log: Optional[str]
+
+
+# ============================================================================
 # Helper Functions
 # ============================================================================
 
@@ -136,6 +199,57 @@ def _get_repo_size(artifact_id: UUID) -> int:
                 fp = os.path.join(dirpath, f)
                 total += os.path.getsize(fp)
     return total
+
+
+def _get_publish_config(artifact: Artifact) -> PublishConfig:
+    """Extract publish config from artifact meta."""
+    meta = artifact.meta or {}
+    pub = meta.get("publish", {})
+    return PublishConfig(
+        enabled=pub.get("enabled", False),
+        slug=pub.get("slug", ""),
+        render_mode=pub.get("render_mode", "embedded"),
+        build_command=pub.get("build_command", ""),
+        output_dir=pub.get("output_dir", "dist"),
+        auto_deploy=pub.get("auto_deploy", True),
+        allow_public_code_view=pub.get("allow_public_code_view", False),
+        status=pub.get("status", "idle"),
+        last_deploy_at=pub.get("last_deploy_at"),
+        last_deploy_commit=pub.get("last_deploy_commit"),
+        last_deploy_log=pub.get("last_deploy_log"),
+    )
+
+
+def _save_publish_config(artifact: Artifact, db: Session, updates: dict) -> None:
+    """Merge publish config updates into artifact meta and persist."""
+    meta = artifact.meta or {}
+    pub = meta.get("publish", {})
+    pub.update({k: v for k, v in updates.items() if v is not None})
+    meta["publish"] = pub
+    artifact.meta = meta
+    flag_modified(artifact, "meta")
+    db.commit()
+
+
+def _generate_slug(name: str) -> str:
+    """Generate a URL-safe slug from a name."""
+    slug = name.lower().strip()
+    slug = re.sub(r'[^a-z0-9]+', '-', slug)
+    slug = slug.strip('-')
+    return slug[:64] or 'site'
+
+
+def _get_site_url(request: Request, slug: str) -> str:
+    """Build the full URL for a published site."""
+    public_url = os.environ.get("PUBLIC_URL", "")
+    if not public_url:
+        public_url = str(request.base_url).rstrip("/")
+    return f"{public_url}/published/{slug}/"
+
+
+def _get_published_path(artifact_id: UUID) -> str:
+    """Get the filesystem path for published site files."""
+    return os.path.join(PUBLISHED_DIR, str(artifact_id))
 
 
 # ============================================================================
@@ -192,6 +306,7 @@ async def get_repo_metadata(
             commit_count=0,
             file_count=0,
             repo_size_bytes=0,
+            publish=_get_publish_config(artifact),
         )
     
     # Get last commit
@@ -236,6 +351,7 @@ async def get_repo_metadata(
         commit_count=commit_count,
         file_count=file_count,
         repo_size_bytes=repo_size,
+        publish=_get_publish_config(artifact),
     )
 
 
@@ -596,3 +712,204 @@ async def get_repo_commit_detail(
         total_additions=total_additions,
         total_deletions=total_deletions,
     )
+
+
+# ============================================================================
+# Publish / Deploy Endpoints
+# ============================================================================
+
+@router.get("/{artifact_id}/publish", response_model=PublishSettingsResponse)
+async def get_publish_settings(
+    artifact_id: UUID,
+    request: Request,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Get publishing configuration for a repo artifact."""
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+    if not artifact or artifact.type != "repo":
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    pub = _get_publish_config(artifact)
+    return PublishSettingsResponse(
+        enabled=pub.enabled,
+        slug=pub.slug,
+        render_mode=pub.render_mode,
+        build_command=pub.build_command,
+        output_dir=pub.output_dir,
+        auto_deploy=pub.auto_deploy,
+        allow_public_code_view=pub.allow_public_code_view,
+        status=pub.status,
+        last_deploy_at=pub.last_deploy_at,
+        last_deploy_commit=pub.last_deploy_commit,
+        site_url=_get_site_url(request, pub.slug) if pub.slug else "",
+    )
+
+
+@router.put("/{artifact_id}/publish", response_model=PublishSettingsResponse)
+async def update_publish_settings(
+    artifact_id: UUID,
+    body: PublishSettingsRequest,
+    request: Request,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Update publishing configuration for a repo artifact."""
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+    if not artifact or artifact.type != "repo":
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    updates = body.model_dump(exclude_unset=True)
+
+    # Auto-generate slug if not provided when enabling
+    if "enabled" in updates and updates["enabled"]:
+        current_pub = _get_publish_config(artifact)
+        if not updates.get("slug") and not current_pub.slug:
+            updates["slug"] = _generate_slug(artifact.name)
+
+    # Validate slug uniqueness if changing
+    if "slug" in updates and updates["slug"]:
+        slug = updates["slug"]
+        if not re.match(r'^[a-z0-9][a-z0-9\-]*$', slug):
+            raise HTTPException(status_code=400, detail="Slug must be lowercase alphanumeric with hyphens")
+        # Check uniqueness
+        existing = db.query(Artifact).filter(
+            Artifact.type == "repo",
+            Artifact.id != artifact_id,
+        ).all()
+        for other in existing:
+            other_pub = (other.meta or {}).get("publish", {})
+            if other_pub.get("slug") == slug:
+                raise HTTPException(status_code=409, detail="Slug is already in use")
+
+    _save_publish_config(artifact, db, updates)
+
+    pub = _get_publish_config(artifact)
+    return PublishSettingsResponse(
+        enabled=pub.enabled,
+        slug=pub.slug,
+        render_mode=pub.render_mode,
+        build_command=pub.build_command,
+        output_dir=pub.output_dir,
+        auto_deploy=pub.auto_deploy,
+        allow_public_code_view=pub.allow_public_code_view,
+        status=pub.status,
+        last_deploy_at=pub.last_deploy_at,
+        last_deploy_commit=pub.last_deploy_commit,
+        site_url=_get_site_url(request, pub.slug) if pub.slug else "",
+    )
+
+
+@router.delete("/{artifact_id}/publish")
+async def unpublish(
+    artifact_id: UUID,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Unpublish a repo artifact — disable serving and remove published files."""
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+    if not artifact or artifact.type != "repo":
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    # Remove published files
+    published_path = _get_published_path(artifact_id)
+    if os.path.exists(published_path):
+        shutil.rmtree(published_path)
+
+    # Clear publish config
+    meta = artifact.meta or {}
+    meta["publish"] = {
+        "enabled": False,
+        "slug": "",
+        "render_mode": "embedded",
+        "build_command": "",
+        "output_dir": "dist",
+        "auto_deploy": True,
+        "allow_public_code_view": False,
+        "status": "idle",
+    }
+    artifact.meta = meta
+    flag_modified(artifact, "meta")
+    db.commit()
+
+    return {"detail": "Site unpublished"}
+
+
+@router.post("/{artifact_id}/deploy")
+async def trigger_deploy(
+    artifact_id: UUID,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Manually trigger a deploy for a repo artifact."""
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+    if not artifact or artifact.type != "repo":
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    pub = _get_publish_config(artifact)
+    if not pub.enabled:
+        raise HTTPException(status_code=400, detail="Publishing is not enabled for this repository")
+
+    if not _repo_exists(artifact_id):
+        raise HTTPException(status_code=400, detail="Repository has no content yet")
+
+    # Queue the deploy task
+    from celery_app.tasks import deploy_repo_task
+    task = deploy_repo_task.delay(str(artifact_id))
+
+    return {"task_id": task.id, "status": "queued"}
+
+
+@router.get("/{artifact_id}/deploy/status", response_model=DeployStatusResponse)
+async def get_deploy_status(
+    artifact_id: UUID,
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Get the current deploy status for a repo artifact."""
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+    if not artifact or artifact.type != "repo":
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    pub = _get_publish_config(artifact)
+    return DeployStatusResponse(
+        status=pub.status,
+        last_deploy_at=pub.last_deploy_at,
+        last_deploy_commit=pub.last_deploy_commit,
+        last_deploy_log=pub.last_deploy_log,
+    )
+
+
+# ============================================================================
+# Internal Deploy Endpoint (called by post-receive hook)
+# ============================================================================
+
+# Internal router for post-receive hook (no auth — internal network only)
+_internal_router = APIRouter(prefix="/internal", tags=["internal"])
+
+
+@_internal_router.post("/deploy/{artifact_id}")
+async def internal_trigger_deploy(
+    artifact_id: UUID,
+    body: dict = {},
+    db: Session = Depends(get_db),
+):
+    """
+    Internal endpoint called by the git post-receive hook.
+    Queues a deploy task if auto_deploy is enabled.
+    """
+    artifact = db.query(Artifact).filter(Artifact.id == artifact_id).first()
+    if not artifact or artifact.type != "repo":
+        return {"detail": "skipped"}
+
+    pub = _get_publish_config(artifact)
+    if not pub.enabled or not pub.auto_deploy:
+        return {"detail": "skipped"}
+
+    ref = body.get("ref", "")
+
+    # Queue the deploy task
+    from celery_app.tasks import deploy_repo_task
+    task = deploy_repo_task.delay(str(artifact_id), ref=ref)
+
+    return {"task_id": task.id, "status": "queued"}

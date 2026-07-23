@@ -9,6 +9,7 @@ Unauthenticated endpoints for viewing publicly shared content:
 - GET /public/repo/{magic_id}/files/{path} - Public repo file contents
 - GET /public/repo/{magic_id}/commits - Public repo commit history
 """
+import os
 from typing import Optional
 from uuid import UUID
 
@@ -46,6 +47,7 @@ router = APIRouter(
 @router.get("/view/{magic_id}")
 async def public_view(
     magic_id: UUID,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
@@ -175,6 +177,17 @@ async def public_view(
         enriched_content = enrich_content_with_signed_urls(
             copy.deepcopy(item.content or {}), expiry_seconds=3600
         )
+        # Include publish config for repos
+        publish_config = None
+        if item.type == "repo":
+            meta = item.meta or {}
+            pub = meta.get("publish", {})
+            if pub.get("enabled"):
+                publish_config = {
+                    "render_mode": pub.get("render_mode", "embedded"),
+                    "slug": pub.get("slug", ""),
+                    "allow_public_code_view": pub.get("allow_public_code_view", False),
+                }
         return {
             "kind": "artifact",
             "artifact": {
@@ -187,6 +200,7 @@ async def public_view(
                 "public_magic_id": item.public_magic_id,
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
+                "publish": publish_config,
             },
             "public_theme": public_theme_response,
         }
@@ -456,7 +470,6 @@ async def public_composition(
 # Public Repository Endpoints
 # ============================================================================
 
-import os
 import subprocess
 from typing import Optional, List, Dict, Any
 from uuid import UUID
@@ -510,7 +523,7 @@ async def public_repo_metadata(magic_id: UUID, request: Request, db: Session = D
     clone_url = f"{base_url}/git/{artifact_id}.git"
 
     if not _repo_exists(artifact_id):
-        return {"name": artifact.name, "description": artifact.description, "commit_count": 0, "file_count": 0, "repo_size_bytes": 0, "last_commit": None, "clone_url": clone_url}
+        return {"name": artifact.name, "description": artifact.description, "commit_count": 0, "file_count": 0, "repo_size_bytes": 0, "last_commit": None, "clone_url": clone_url, "publish": None}
 
     last_commit = None
     result = _run_git_command(artifact_id, "log", "-1", "--format=%H|%s|%an <%ae>|%aI")
@@ -532,6 +545,23 @@ async def public_repo_metadata(magic_id: UUID, request: Request, db: Session = D
     if result.returncode == 0:
         file_count = len([l for l in result.stdout.strip().split("\n") if l])
 
+    # Include publish config for static site detection
+    pub = (artifact.meta or {}).get("publish", {})
+    publish = None
+    if pub.get("enabled"):
+        site_url = None
+        slug = pub.get("slug", "")
+        if slug:
+            public_url = os.environ.get("PUBLIC_URL") or str(request.base_url).rstrip("/")
+            site_url = f"{public_url}/published/{slug}/"
+        publish = {
+            "enabled": True,
+            "slug": slug,
+            "render_mode": pub.get("render_mode", "embedded"),
+            "allow_public_code_view": pub.get("allow_public_code_view", False),
+            "site_url": site_url,
+        }
+
     return {
         "name": artifact.name,
         "description": artifact.description,
@@ -540,6 +570,7 @@ async def public_repo_metadata(magic_id: UUID, request: Request, db: Session = D
         "repo_size_bytes": _get_repo_size(artifact_id),
         "last_commit": last_commit,
         "clone_url": clone_url,
+        "publish": publish,
     }
 
 

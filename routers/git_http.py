@@ -38,6 +38,13 @@ def _check_public_repo(repo_id: str, db: Session) -> Artifact:
         raise HTTPException(status_code=404, detail="Repository not found")
     if not artifact.is_public:
         raise HTTPException(status_code=404, detail="Repository not found")
+
+    # Block clone if public code view is not allowed
+    meta = artifact.meta or {}
+    pub = meta.get("publish", {})
+    if pub.get("enabled") and not pub.get("allow_public_code_view", False):
+        raise HTTPException(status_code=404, detail="Repository not found")
+
     return artifact
 
 
