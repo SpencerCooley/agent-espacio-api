@@ -280,17 +280,18 @@ async def get_repo_metadata(
             detail="Artifact is not a repository"
         )
     
-    # Build git remote URL (use API_HOST env or default)
-    api_host = os.environ.get("API_HOST", "localhost")
-    # If API_HOST is 0.0.0.0, use a more useful default
-    if api_host in ("0.0.0.0", "127.0.0.1"):
-        api_host = "localhost"
-    git_remote_url = f"ssh://git@{api_host}:2222/repos/{artifact_id}.git"
+    # Build git remote URL (use GIT_HOST env or default to localhost for local dev)
+    git_host = os.environ.get("GIT_HOST", "localhost")
+    git_remote_url = f"ssh://git@{git_host}:2222/repos/{artifact_id}.git"
 
-    # Build HTTP clone URL for public repos
+    # Build HTTP clone URL for public repos (PUBLIC_URL is the API domain)
     public_url = os.environ.get("PUBLIC_URL", "")
     if not public_url:
-        public_url = f"https://{api_host}" if api_host != "localhost" else "http://localhost:8000"
+        # Fallback to GIT_HOST if set, otherwise localhost
+        if git_host != "localhost":
+            public_url = f"https://{git_host}"
+        else:
+            public_url = "http://localhost:8000"
     clone_url = f"{public_url}/git/{artifact_id}.git"
     
     # Check if repo exists on disk

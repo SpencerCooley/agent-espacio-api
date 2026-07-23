@@ -170,7 +170,7 @@ Repo artifacts can be published as static sites served from `/published/{slug}/`
 
 ### Workflow
 1. Create a repo artifact in Agent Espacio (or use an existing one)
-2. Clone it locally via SSH: `git clone ssh://git@localhost:2222/repos/{artifact_id}.git`
+2. Clone it locally via SSH: `git clone ssh://git@<GIT_HOST>:2222/repos/{artifact_id}.git` (replace `<GIT_HOST>` with the hostname configured for the git server, e.g. `localhost` for local development or `api-agentespacio.spencercooley.com` for production)
 3. Write your module (HTML, CSS, JS, or a Vite project with `base: './'`)
 4. Push: `git push origin main`
 5. In the Espacio UI, click the gear icon on the repo artifact, choose "Static Site", configure a slug, optionally add a build command (e.g., `npm run build`) and output directory (e.g., `dist`), then save.

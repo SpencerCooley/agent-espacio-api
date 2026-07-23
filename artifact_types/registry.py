@@ -1078,7 +1078,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  2. The system initializes a bare git repository on disk\n"
             "  3. Add your SSH public key via POST /ssh-keys\n"
             "  4. Configure your local git remote:\n"
-            "     git remote add origin ssh://git@<host>:2222/repos/<artifact_id>.git\n"
+            "     git remote add origin ssh://git@<GIT_HOST>:2222/repos/<artifact_id>.git\n"
             "  5. Push your code: git push -u origin master\n\n"
             "CONTENT SCHEMA:\n"
             "  The content field stores build configuration for Phase 2:\n"
