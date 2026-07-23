@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     
     # API
     api_host: str = "0.0.0.0"
+    git_host: str = "localhost"
+    public_url: str = ""
 
     secret_key: str = "some-sort-of-secret"
     
