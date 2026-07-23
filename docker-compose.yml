@@ -124,7 +124,7 @@ services:
       dockerfile: Dockerfile.git
     container_name: agentespacio_git
     restart: always
-    command: ["sh", "-c", "if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then ssh-keygen -A; fi; exec /usr/sbin/sshd -D -e"]
+    command: ["sh", "-c", "printenv | grep '^POSTGRES_' > /etc/git-auth.env; chmod 600 /etc/git-auth.env; if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then ssh-keygen -A; fi; exec /usr/sbin/sshd -D -e -f /usr/local/etc/sshd_config"]
     ports:
       - "2222:22"
     volumes:
