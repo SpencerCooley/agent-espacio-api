@@ -9,11 +9,13 @@ Unauthenticated endpoints for viewing publicly shared content:
 - GET /public/repo/{magic_id}/files/{path} - Public repo file contents
 - GET /public/repo/{magic_id}/commits - Public repo commit history
 """
+import mimetypes
 import os
+import subprocess
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -470,9 +472,7 @@ async def public_composition(
 # Public Repository Endpoints
 # ============================================================================
 
-import subprocess
-from typing import Optional, List, Dict, Any
-from uuid import UUID
+from typing import List, Dict, Any
 
 REPOS_DIR = os.path.join(os.environ.get("STORAGE_PATH", "/app/storage"), "repos")
 
@@ -489,6 +489,17 @@ def _run_git_command(artifact_id: UUID, *args: str) -> subprocess.CompletedProce
     repo_path = _get_repo_path(artifact_id)
     cmd = ["git", "--git-dir", repo_path] + list(args)
     return subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+
+def _run_git_command_bytes(artifact_id: UUID, *args: str) -> subprocess.CompletedProcess:
+    repo_path = _get_repo_path(artifact_id)
+    cmd = ["git", "--git-dir", repo_path] + list(args)
+    return subprocess.run(cmd, capture_output=True, check=False)
+
+
+def _guess_media_type(file_path: str) -> str:
+    media_type, _ = mimetypes.guess_type(file_path)
+    return media_type or "application/octet-stream"
 
 
 def _get_repo_size(artifact_id: UUID) -> int:
@@ -646,6 +657,46 @@ async def public_repo_file(magic_id: UUID, file_path: str, ref: str = "HEAD", db
         content = "[Binary file - cannot display]"
 
     return {"path": file_path, "ref": ref, "content": content, "size": file_size, "is_binary": is_binary}
+
+
+@router.get("/repo/{magic_id}/raw/{file_path:path}")
+async def public_repo_raw_file(
+    magic_id: UUID,
+    file_path: str,
+    ref: str = "HEAD",
+    db: Session = Depends(get_db),
+):
+    """
+    Get raw file bytes from a public repository (for images).
+    Only works for publicly shared repos — private repos are not exposed.
+    """
+    artifact, err = _resolve_public_repo(db, magic_id)
+    if err:
+        raise err
+
+    artifact_id = UUID(str(artifact.id))
+    if not _repo_exists(artifact_id):
+        raise HTTPException(status_code=404, detail="Repository not initialized")
+
+    result = _run_git_command(artifact_id, "cat-file", "-t", f"{ref}:{file_path}")
+    if result.returncode != 0:
+        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+
+    if result.stdout.strip() != "blob":
+        raise HTTPException(status_code=400, detail=f"Path is not a file: {file_path}")
+
+    result = _run_git_command_bytes(artifact_id, "cat-file", "-p", f"{ref}:{file_path}")
+    if result.returncode != 0:
+        raise HTTPException(status_code=500, detail="Failed to read file contents")
+
+    return Response(
+        content=result.stdout,
+        media_type=_guess_media_type(file_path),
+        headers={
+            "Cache-Control": "public, max-age=300",
+            "Content-Disposition": f'inline; filename="{os.path.basename(file_path)}"',
+        },
+    )
 
 
 @router.get("/repo/{magic_id}/commits")

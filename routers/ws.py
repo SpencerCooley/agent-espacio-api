@@ -63,6 +63,7 @@ def _get_channels(event: dict) -> list[str]:
     Determine the channels an event should be broadcast to.
     
     For move events, broadcasts to both source and destination folders.
+    Deploy events also go to artifact:{id}.
     For other events, returns the single folder channel or 'global'.
     """
     channels = []
@@ -73,6 +74,14 @@ def _get_channels(event: dict) -> list[str]:
     source_folder_id = payload.get("source_folder_id")
     if source_folder_id and source_folder_id != folder_id:
         channels.append(f"folder:{source_folder_id}")
+    # Artifact-scoped events (deploy status, etc.)
+    resource_id = event.get("resource_id")
+    event_type = event.get("event_type") or ""
+    if resource_id and (
+        event_type.startswith("artifact.deploy")
+        or event_type.startswith("artifact.")
+    ):
+        channels.append(f"artifact:{resource_id}")
     if not channels:
         channels.append("global")
     return channels

@@ -10,6 +10,7 @@ Endpoints for browsing git repository artifacts:
 - POST /artifacts/{id}/deploy - Manual deploy
 - GET /artifacts/{id}/deploy/status - Deploy status
 """
+import mimetypes
 import os
 import re
 import shutil
@@ -154,12 +155,23 @@ class PublishSettingsResponse(BaseModel):
     site_url: str = Field(default="", description="Full URL to the published site")
 
 
+class DeployHistoryEntry(BaseModel):
+    """Single deploy run stored in artifact meta."""
+    status: str = Field(..., description="'deployed' or 'failed'")
+    commit: str = Field(default="", description="Short SHA of deployed commit")
+    started_at: Optional[str] = Field(None, description="ISO timestamp when deploy started")
+    finished_at: Optional[str] = Field(None, description="ISO timestamp when deploy finished")
+    log: str = Field(default="", description="Build/deploy log")
+    ref: str = Field(default="", description="Git ref if provided")
+
+
 class DeployStatusResponse(BaseModel):
     """Response for deploy status."""
     status: str
     last_deploy_at: Optional[str]
     last_deploy_commit: Optional[str]
     last_deploy_log: Optional[str]
+    deploy_history: List[DeployHistoryEntry] = Field(default_factory=list)
 
 
 # ============================================================================
@@ -187,6 +199,18 @@ def _run_git_command(artifact_id: UUID, *args: str) -> subprocess.CompletedProce
         check=False,
     )
     return result
+
+
+def _run_git_command_bytes(artifact_id: UUID, *args: str) -> subprocess.CompletedProcess:
+    """Run a git command against a bare repo, returning raw bytes."""
+    repo_path = _get_repo_path(artifact_id)
+    cmd = ["git", "--git-dir", repo_path] + list(args)
+    return subprocess.run(cmd, capture_output=True, check=False)
+
+
+def _guess_media_type(file_path: str) -> str:
+    media_type, _ = mimetypes.guess_type(file_path)
+    return media_type or "application/octet-stream"
 
 
 def _get_repo_size(artifact_id: UUID) -> int:
@@ -536,6 +560,67 @@ async def get_repo_file(
     )
 
 
+@router.get("/{artifact_id}/repo/raw/{file_path:path}")
+async def get_repo_raw_file(
+    artifact_id: UUID,
+    file_path: str,
+    ref: str = "HEAD",
+    current_user: Optional[User] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """
+    Get raw file bytes from a repository (for images and other binary files).
+    Requires authentication — private repos are never exposed publicly via this path.
+    """
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artifact not found",
+        )
+
+    if artifact.type != "repo":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Artifact is not a repository",
+        )
+
+    if not _repo_exists(artifact_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not initialized yet",
+        )
+
+    result = _run_git_command(artifact_id, "cat-file", "-t", f"{ref}:{file_path}")
+    if result.returncode != 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"File not found: {file_path}",
+        )
+
+    if result.stdout.strip() != "blob":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Path is not a file: {file_path}",
+        )
+
+    result = _run_git_command_bytes(artifact_id, "cat-file", "-p", f"{ref}:{file_path}")
+    if result.returncode != 0:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to read file contents",
+        )
+
+    return Response(
+        content=result.stdout,
+        media_type=_guess_media_type(file_path),
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "Content-Disposition": f'inline; filename="{os.path.basename(file_path)}"',
+        },
+    )
+
+
 @router.get("/{artifact_id}/repo/commits", response_model=RepoCommitsResponse)
 async def get_repo_commits(
     artifact_id: UUID,
@@ -854,11 +939,35 @@ async def trigger_deploy(
     if not _repo_exists(artifact_id):
         raise HTTPException(status_code=400, detail="Repository has no content yet")
 
-    # Queue the deploy task
+    # Optimistic status so UI can flip immediately even before Celery starts
+    meta = dict(artifact.meta or {})
+    pub_meta = dict(meta.get("publish") or {})
+    pub_meta["status"] = "building"
+    meta["publish"] = pub_meta
+    artifact.meta = meta
+    flag_modified(artifact, "meta")
+    db.commit()
+
+    try:
+        from services.events import publish_event
+        from datetime import datetime, timezone
+
+        publish_event(
+            event_type="artifact.deploy_started",
+            folder_id=str(artifact.folder_id) if artifact.folder_id else "",
+            resource_id=str(artifact_id),
+            payload={
+                "status": "building",
+                "started_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+    except Exception:
+        pass
+
     from celery_app.tasks import deploy_repo_task
     task = deploy_repo_task.delay(str(artifact_id))
 
-    return {"task_id": task.id, "status": "queued"}
+    return {"task_id": task.id, "status": "building"}
 
 
 @router.get("/{artifact_id}/deploy/status", response_model=DeployStatusResponse)
@@ -867,17 +976,33 @@ async def get_deploy_status(
     current_user: Optional[User] = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    """Get the current deploy status for a repo artifact."""
+    """Get the current deploy status and history for a repo artifact."""
     artifact = controllers.artifact.get_artifact(db, artifact_id)
     if not artifact or artifact.type != "repo":
         raise HTTPException(status_code=404, detail="Repository not found")
 
     pub = _get_publish_config(artifact)
+    meta = artifact.meta or {}
+    pub_raw = meta.get("publish") or {}
+    history_raw = pub_raw.get("deploy_history") or []
+    history = []
+    for item in history_raw:
+        if isinstance(item, dict):
+            history.append(DeployHistoryEntry(
+                status=item.get("status", "failed"),
+                commit=item.get("commit", ""),
+                started_at=item.get("started_at"),
+                finished_at=item.get("finished_at"),
+                log=item.get("log", ""),
+                ref=item.get("ref", ""),
+            ))
+
     return DeployStatusResponse(
         status=pub.status,
         last_deploy_at=pub.last_deploy_at,
         last_deploy_commit=pub.last_deploy_commit,
         last_deploy_log=pub.last_deploy_log,
+        deploy_history=history,
     )
 
 
@@ -909,8 +1034,32 @@ async def internal_trigger_deploy(
 
     ref = body.get("ref", "")
 
-    # Queue the deploy task
+    meta = dict(artifact.meta or {})
+    pub_meta = dict(meta.get("publish") or {})
+    pub_meta["status"] = "building"
+    meta["publish"] = pub_meta
+    artifact.meta = meta
+    flag_modified(artifact, "meta")
+    db.commit()
+
+    try:
+        from services.events import publish_event
+        from datetime import datetime, timezone
+
+        publish_event(
+            event_type="artifact.deploy_started",
+            folder_id=str(artifact.folder_id) if artifact.folder_id else "",
+            resource_id=str(artifact_id),
+            payload={
+                "status": "building",
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "ref": ref or "",
+            },
+        )
+    except Exception:
+        pass
+
     from celery_app.tasks import deploy_repo_task
     task = deploy_repo_task.delay(str(artifact_id), ref=ref)
 
-    return {"task_id": task.id, "status": "queued"}
+    return {"task_id": task.id, "status": "building"}
