@@ -17,6 +17,27 @@ STORAGE_PATH = os.environ.get("STORAGE_PATH", "/app/storage")
 REPOS_DIR = os.path.join(STORAGE_PATH, "repos")
 
 
+def write_post_receive_hook(repo_path: str, artifact_id: UUID | str) -> None:
+    """Write executable post-receive hook that notifies the API on push."""
+    hooks_dir = os.path.join(repo_path, "hooks")
+    os.makedirs(hooks_dir, exist_ok=True)
+    hook_path = os.path.join(hooks_dir, "post-receive")
+    # $newrev must expand at hook runtime; use printf so JSON quoting is safe
+    content = f"""#!/bin/bash
+# Auto-deploy hook for Agent Espacio static sites
+# Notifies the API after push; API queues deploy if publish + auto_deploy are enabled
+ARTIFACT_ID="{artifact_id}"
+while read oldrev newrev refname; do
+  curl -sS -X POST "http://api:8000/internal/deploy/${{ARTIFACT_ID}}" \\
+    -H "Content-Type: application/json" \\
+    -d "$(printf '{{"ref":"%s"}}' "$newrev")" || true
+done
+"""
+    with open(hook_path, "w") as f:
+        f.write(content)
+    os.chmod(hook_path, 0o755)
+
+
 def _init_bare_repo(artifact_id: UUID) -> None:
     """Initialize a bare git repository for a repo artifact."""
     repo_path = os.path.join(REPOS_DIR, f"{artifact_id}.git")
@@ -26,20 +47,7 @@ def _init_bare_repo(artifact_id: UUID) -> None:
         check=True,
         capture_output=True,
     )
-    # Create post-receive hook to trigger auto-deploy
-    hook_path = os.path.join(repo_path, "hooks", "post-receive")
-    with open(hook_path, "w") as f:
-        f.write(f"""#!/bin/bash
-# Auto-deploy hook for Agent Espacio static sites
-# Reads pushed refs and notifies the API to trigger a build if auto_deploy is enabled
-while read oldrev newrev refname; do
-  ARTIFACT_ID="{artifact_id}"
-  curl -s -X POST "http://api:8000/internal/deploy/${{ARTIFACT_ID}}" \\
-    -H "Content-Type: application/json" \\
-    -d '{{"ref": "${{newrev}}"}}' &
-done
-""")
-    os.chmod(hook_path, 0o755)
+    write_post_receive_hook(repo_path, artifact_id)
     # Ensure the git user in the SSH container can write to this repo
     subprocess.run(["chmod", "-R", "a+w", repo_path], check=True, capture_output=True)
 

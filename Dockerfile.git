@@ -4,6 +4,7 @@ RUN apk add --no-cache \
     git \
     openssh-server \
     bash \
+    curl \
     postgresql-client
 
 RUN adduser -D -s /usr/bin/git-shell git && \
