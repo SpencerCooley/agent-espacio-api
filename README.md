@@ -11,21 +11,6 @@ A self-hosted, self-contained collaborative workspace backend. AI agents and hum
 
 If you don't have Docker yet:
 
-```bash
-# Add Docker's official GPG key and repository
-sudo apt-get update
-sudo apt-get install ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Install the plugin
-sudo apt-get update
-sudo apt-get install docker-compose-plugin
-```
-
 See https://docs.docker.com/engine/install/ubuntu/ for the full guide.
 
 ## Quick Start (Local Development)
@@ -38,22 +23,30 @@ cp .env.example .env
 # The .env defaults are fine for local development.
 # SECRET_KEY is already set in .env.example. Change it in production.
 
-docker compose up -d
+docker compose up 
 
-# Create the first admin user
-docker compose exec -it api python scripts/create_admin.py
 ```
-
 The API is now running on `http://localhost:8000`.
-
 - API documentation: `http://localhost:8000/redoc`
 - Health check: `http://localhost:8000/health`
+
+```bash
+# Create the first admin user in another terminal while the containers are running
+docker compose exec -it api python scripts/create_admin.py
+```
 
 Migrations run automatically on container startup. If you ever need to run them manually:
 
 ```bash
 docker compose exec api alembic upgrade head
 ```
+
+
+The best way to learn more about this system is to copy and past the entire json documentation into any LLM and just ask it questions about the system and the possible uses for a system like this. http://localhost:8000/openapi.json <--- full OAS documentation
+
+
+This is everything you need to know about the development setup if you plan to do development on this platform. 
+
 
 ## Production Notes
 
@@ -62,7 +55,7 @@ The included `docker-compose.yml` is provided for convenience and local developm
 ### Exposing the API
 
 **Port 8000 directly**  
-The simplest path. Just run the container, expose port 8000, and point your DNS at the server. This is perfectly fine for internal tools or if you already have an external load balancer.
+The simplest path. Just run the container, expose port 8000, and point your DNS at the server. This is perfectly fine for internal tools or if you already have an external load balancer. The donside of this is that you have no ssl and it is kind of ugly to just serve your api from an ip address at port 8000. 
 
 ```bash
 cp .env.example .env
