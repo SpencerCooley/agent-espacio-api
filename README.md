@@ -32,13 +32,13 @@ The API is now running on `http://localhost:8000`.
 
 ```bash
 # Create the first admin user in another terminal while the containers are running
-docker compose exec -it api python scripts/create_admin.py
+docker compose exec -it agentespacio_api python scripts/create_admin.py
 ```
 
 Migrations run automatically on container startup. If you ever need to run them manually:
 
 ```bash
-docker compose exec api alembic upgrade head
+docker compose exec agentespacio_api alembic upgrade head
 ```
 
 
