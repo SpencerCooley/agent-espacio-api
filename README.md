@@ -16,7 +16,7 @@ See https://docs.docker.com/engine/install/ubuntu/ for the full guide.
 ## Quick Start (Local Development)
 
 ```bash
-git clone https://github.com/SpencerCooley/agent-espacio-api.git
+git clone https://github.com/SpencerCooley/agent-espacio-api
 cd agent-espacio-api
 cp .env.example .env
 
