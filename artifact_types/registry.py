@@ -193,44 +193,553 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "image",
                         "attrs": {
-                            "src": "/assets/a1b2c3d4/download?thumb=512",
-                            "data-asset-id": "a1b2c3d4-...",
-                            "alt": "Architecture diagram",
-                            "data-thumb-size": 512,
+                            "alt": "Cover image - center aligned",
+                            "src": "http://localhost:8000/assets/10e4bd58-3a89-4af5-9550-0a67b41be6a8/download?size=512",
+                            "title": null,
+                            "textAlign": "center",
+                            "data-asset-id": "10e4bd58-3a89-4af5-9550-0a67b41be6a8",
+                            "data-thumb-size": 512
+                        }
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
                             "textAlign": "center"
+                        },
+                        "content": [
+                            {
+                                "text": "Complete Note Formatting Reference",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "bold"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "center"
+                        },
+                        "content": [
+                            {
+                                "text": "This document demonstrates every formatting feature available in Agent Espacio notes. Each section shows a different capability with clear, descriptive text.",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
                         }
                     },
                     {
                         "type": "heading",
-                        "attrs": {"level": 1, "textAlign": "left"},
-                        "content": [{"type": "text", "text": "Project Notes"}]
-                    },
-                    {
-                        "type": "paragraph",
-                        "attrs": {"textAlign": "left"},
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
                         "content": [
-                            {"type": "text", "text": "Meeting with the team on "},
-                            {"type": "text", "text": "Monday", "marks": [{"type": "bold"}]},
-                            {"type": "text", "text": ". Review the "},
-                            {"type": "text", "text": "design mockups", "marks": [{"type": "link", "attrs": {"href": "https://figma.com/file/xyz"}}]},
-                            {"type": "text", "text": "."}
+                            {
+                                "text": "1. Inline Text Formatting",
+                                "type": "text"
+                            }
                         ]
                     },
                     {
                         "type": "paragraph",
-                        "attrs": {"textAlign": "left"},
+                        "attrs": {
+                            "textAlign": "left"
+                        },
                         "content": [
-                            {"type": "text", "text": "Important: "},
-                            {"type": "text", "text": "deadline approaching", "marks": [{"type": "highlight", "attrs": {"color": "#ffeb3b"}}]},
-                            {"type": "text", "text": ". Use "},
-                            {"type": "text", "text": "red text", "marks": [{"type": "textStyle", "attrs": {"color": "#e53935"}}]},
-                            {"type": "text", "text": " for warnings."}
+                            {
+                                "text": "This is ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "bold text",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "bold"
+                                    }
+                                ]
+                            },
+                            {
+                                "text": " for emphasis. This is ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "italic text",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "italic"
+                                    }
+                                ]
+                            },
+                            {
+                                "text": " for citations. This is ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "underlined text",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "underline"
+                                    }
+                                ]
+                            },
+                            {
+                                "text": " for links (when not using the link tool). This is ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "strikethrough text",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "strike"
+                                    }
+                                ]
+                            },
+                            {
+                                "text": " for deletions. Inline code like ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "npm install",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "code"
+                                    }
+                                ]
+                            },
+                            {
+                                "text": " uses monospace formatting.",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Here is a hyperlink to ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "Agent Espacio",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "link",
+                                        "attrs": {
+                                            "rel": "noopener noreferrer nofollow",
+                                            "href": "https://espacio.ai",
+                                            "class": null,
+                                            "title": null,
+                                            "target": "_blank"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "text": " that opens in a new tab.",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "2. Text Color and Highlighting",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Text can be colored for emphasis: ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "red warning text",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "textStyle",
+                                        "attrs": {
+                                            "color": "#e53935"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "text": ", ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "blue informational text",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "textStyle",
+                                        "attrs": {
+                                            "color": "#1e88e5"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "text": ", or ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "green success text",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "textStyle",
+                                        "attrs": {
+                                            "color": "#43a047"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "text": ".",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Background highlighting works too: ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "yellow highlight",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "highlight",
+                                        "attrs": {
+                                            "color": "#ffeb3b"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "text": ", ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "green highlight",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "highlight",
+                                        "attrs": {
+                                            "color": "#a5d6a7"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "text": ", ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "blue highlight",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "highlight",
+                                        "attrs": {
+                                            "color": "#90caf9"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "text": ".",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Combined: ",
+                                "type": "text"
+                            },
+                            {
+                                "text": "red text with yellow background",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "textStyle",
+                                        "attrs": {
+                                            "color": "#e53935"
+                                        }
+                                    },
+                                    {
+                                        "type": "highlight",
+                                        "attrs": {
+                                            "color": "#ffeb3b"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "text": " for maximum visibility.",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "3. Paragraph Alignments",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "This paragraph is left-aligned (the default). Most body text uses left alignment for natural reading flow in Western languages.",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "center"
+                        },
+                        "content": [
+                            {
+                                "text": "This paragraph is center-aligned. Useful for titles, captions, or call-to-action text.",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "right"
+                        },
+                        "content": [
+                            {
+                                "text": "This paragraph is right-aligned. Sometimes used for signatures, dates, or Arabic/Hebrew text.",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "justify"
+                        },
+                        "content": [
+                            {
+                                "text": "This paragraph is fully justified. The text is spread evenly across the line width, creating clean edges on both left and right sides. This is commonly used in formal documents, newspapers, and academic papers where a neat block appearance is desired.",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "4. Headings and Hierarchy",
+                                "type": "text"
+                            }
                         ]
                     },
                     {
                         "type": "heading",
-                        "attrs": {"level": 2},
-                        "content": [{"type": "text", "text": "Action Items"}]
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Heading 1 - Main Title",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "highlight",
+                                        "attrs": {
+                                            "color": "#ef9a9a"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 2,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Heading 2 - Section",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "highlight",
+                                        "attrs": {
+                                            "color": "#ef9a9a"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 3,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Heading 3 - Subsection",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "highlight",
+                                        "attrs": {
+                                            "color": "#ef9a9a"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 3,
+                            "textAlign": "right"
+                        },
+                        "content": [
+                            {
+                                "text": "Heading 3 - Right Aligned",
+                                "type": "text",
+                                "marks": [
+                                    {
+                                        "type": "textStyle",
+                                        "attrs": {
+                                            "color": "#1e88e5"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "horizontalRule"
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "5. Lists",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Unordered lists use bullet points:",
+                                "type": "text"
+                            }
+                        ]
                     },
                     {
                         "type": "bulletList",
@@ -240,7 +749,15 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                 "content": [
                                     {
                                         "type": "paragraph",
-                                        "content": [{"type": "text", "text": "Finalize API contract"}]
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "First item",
+                                                "type": "text"
+                                            }
+                                        ]
                                     }
                                 ]
                             },
@@ -249,7 +766,62 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                 "content": [
                                     {
                                         "type": "paragraph",
-                                        "content": [{"type": "text", "text": "Deploy staging environment", "marks": [{"type": "strike"}]}]
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "Second item with ",
+                                                "type": "text"
+                                            },
+                                            {
+                                                "text": "colored text",
+                                                "type": "text",
+                                                "marks": [
+                                                    {
+                                                        "type": "textStyle",
+                                                        "attrs": {
+                                                            "color": "#e53935"
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "listItem",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "Third item with ",
+                                                "type": "text"
+                                            },
+                                            {
+                                                "text": "color and highlight",
+                                                "type": "text",
+                                                "marks": [
+                                                    {
+                                                        "type": "textStyle",
+                                                        "attrs": {
+                                                            "color": "rgb(229, 57, 53)"
+                                                        }
+                                                    },
+                                                    {
+                                                        "type": "highlight",
+                                                        "attrs": {
+                                                            "color": "#90caf9"
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     }
                                 ]
                             }
@@ -257,8 +829,457 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     },
                     {
                         "type": "paragraph",
-                        "attrs": {"textAlign": "center"},
-                        "content": [{"type": "text", "text": "Progress Overview", "marks": [{"type": "bold"}, {"type": "underline"}]}]
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Ordered lists use numbers:",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "orderedList",
+                        "attrs": {
+                            "type": null,
+                            "start": 1
+                        },
+                        "content": [
+                            {
+                                "type": "listItem",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "Step one",
+                                                "type": "text"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "listItem",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "Step two",
+                                                "type": "text"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "listItem",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "Step three",
+                                                "type": "text"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Task lists with checkboxes:",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "taskList",
+                        "content": [
+                            {
+                                "type": "taskItem",
+                                "attrs": {
+                                    "checked": true
+                                },
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "Completed task",
+                                                "type": "text"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "taskItem",
+                                "attrs": {
+                                    "checked": true
+                                },
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "Another completed task",
+                                                "type": "text"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "taskItem",
+                                "attrs": {
+                                    "checked": false
+                                },
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "Pending task",
+                                                "type": "text"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "taskItem",
+                                "attrs": {
+                                    "checked": false
+                                },
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "Another pending task",
+                                                "type": "text"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "6. Nested Lists",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Lists can be nested to create hierarchies:",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "bulletList",
+                        "content": [
+                            {
+                                "type": "listItem",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "Level 1 bullet",
+                                                "type": "text"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "bulletList",
+                                        "content": [
+                                            {
+                                                "type": "listItem",
+                                                "content": [
+                                                    {
+                                                        "type": "paragraph",
+                                                        "attrs": {
+                                                            "textAlign": "left"
+                                                        },
+                                                        "content": [
+                                                            {
+                                                                "text": "Level 2 bullet",
+                                                                "type": "text"
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        "type": "bulletList",
+                                                        "content": [
+                                                            {
+                                                                "type": "listItem",
+                                                                "content": [
+                                                                    {
+                                                                        "type": "paragraph",
+                                                                        "attrs": {
+                                                                            "textAlign": "left"
+                                                                        },
+                                                                        "content": [
+                                                                            {
+                                                                                "text": "Level 3 bullet",
+                                                                                "type": "text"
+                                                                            }
+                                                                        ]
+                                                                    },
+                                                                    {
+                                                                        "type": "bulletList",
+                                                                        "content": [
+                                                                            {
+                                                                                "type": "listItem",
+                                                                                "content": [
+                                                                                    {
+                                                                                        "type": "paragraph",
+                                                                                        "attrs": {
+                                                                                            "textAlign": "left"
+                                                                                        },
+                                                                                        "content": [
+                                                                                            {
+                                                                                                "text": "Level 4 bullet",
+                                                                                                "type": "text"
+                                                                                            }
+                                                                                        ]
+                                                                                    }
+                                                                                ]
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Ordered lists can nest too:",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "orderedList",
+                        "attrs": {
+                            "type": null,
+                            "start": 1
+                        },
+                        "content": [
+                            {
+                                "type": "listItem",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "attrs": {
+                                            "textAlign": "left"
+                                        },
+                                        "content": [
+                                            {
+                                                "text": "First ordered item",
+                                                "type": "text"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "orderedList",
+                                        "attrs": {
+                                            "type": null,
+                                            "start": 1
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "listItem",
+                                                "content": [
+                                                    {
+                                                        "type": "paragraph",
+                                                        "attrs": {
+                                                            "textAlign": "left"
+                                                        },
+                                                        "content": [
+                                                            {
+                                                                "text": "Nested ordered item",
+                                                                "type": "text"
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        "type": "orderedList",
+                                                        "attrs": {
+                                                            "type": null,
+                                                            "start": 1
+                                                        },
+                                                        "content": [
+                                                            {
+                                                                "type": "listItem",
+                                                                "content": [
+                                                                    {
+                                                                        "type": "paragraph",
+                                                                        "attrs": {
+                                                                            "textAlign": "left"
+                                                                        },
+                                                                        "content": [
+                                                                            {
+                                                                                "text": "Deeply nested",
+                                                                                "type": "text"
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "horizontalRule"
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "7. Blockquote",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "blockquote",
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "attrs": {
+                                    "textAlign": "left"
+                                },
+                                "content": [
+                                    {
+                                        "text": "A blockquote is used for quotations, important callouts, or distinguished sections of text. It renders with a left border and subtle background styling.",
+                                        "type": "text"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "8. Tables",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Tables support headers, colored text, and alignment:",
+                                "type": "text"
+                            }
+                        ]
                     },
                     {
                         "type": "table",
@@ -268,15 +1289,87 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                 "content": [
                                     {
                                         "type": "tableHeader",
-                                        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Task"}]}]
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Feature",
+                                                        "type": "text",
+                                                        "marks": [
+                                                            {
+                                                                "type": "bold"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     },
                                     {
                                         "type": "tableHeader",
-                                        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Status"}]}]
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Status",
+                                                        "type": "text",
+                                                        "marks": [
+                                                            {
+                                                                "type": "bold"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     },
                                     {
                                         "type": "tableHeader",
-                                        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "ETA"}]}]
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Notes",
+                                                        "type": "text",
+                                                        "marks": [
+                                                            {
+                                                                "type": "bold"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     }
                                 ]
                             },
@@ -285,15 +1378,77 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                 "content": [
                                     {
                                         "type": "tableCell",
-                                        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "API contract"}]}]
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Bold text",
+                                                        "type": "text"
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     },
                                     {
                                         "type": "tableCell",
-                                        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Done", "marks": [{"type": "bold"}]}]}]
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Supported",
+                                                        "type": "text",
+                                                        "marks": [
+                                                            {
+                                                                "type": "bold"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     },
                                     {
                                         "type": "tableCell",
-                                        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "June 5"}]}]
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Standard emphasis",
+                                                        "type": "text"
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     }
                                 ]
                             },
@@ -302,27 +1457,337 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                 "content": [
                                     {
                                         "type": "tableCell",
-                                        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Staging deploy"}]}]
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Colored text",
+                                                        "type": "text",
+                                                        "marks": [
+                                                            {
+                                                                "type": "textStyle",
+                                                                "attrs": {
+                                                                    "color": "#e53935"
+                                                                }
+                                                            },
+                                                            {
+                                                                "type": "highlight",
+                                                                "attrs": {
+                                                                    "color": "#a5d6a7"
+                                                                }
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     },
                                     {
                                         "type": "tableCell",
-                                        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "In progress", "marks": [{"type": "italic"}]}]}]
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Supported",
+                                                        "type": "text"
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     },
                                     {
                                         "type": "tableCell",
-                                        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "June 7"}]}]
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Color + highlight combo",
+                                                        "type": "text"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "tableRow",
+                                "content": [
+                                    {
+                                        "type": "tableCell",
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Italic text",
+                                                        "type": "text",
+                                                        "marks": [
+                                                            {
+                                                                "type": "italic"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "tableCell",
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "Supported",
+                                                        "type": "text",
+                                                        "marks": [
+                                                            {
+                                                                "type": "italic"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "tableCell",
+                                        "attrs": {
+                                            "align": null,
+                                            "colspan": 1,
+                                            "rowspan": 1,
+                                            "colwidth": null
+                                        },
+                                        "content": [
+                                            {
+                                                "type": "paragraph",
+                                                "attrs": {
+                                                    "textAlign": null
+                                                },
+                                                "content": [
+                                                    {
+                                                        "text": "For citations and emphasis",
+                                                        "type": "text"
+                                                    }
+                                                ]
+                                            }
+                                        ]
                                     }
                                 ]
                             }
                         ]
                     },
                     {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "9. Code Blocks",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Multi-line code blocks with optional language highlighting:",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
                         "type": "codeBlock",
-                        "attrs": {"language": "python"},
-                        "content": [{"type": "text", "text": "def hello():\n    print('Hello, world!')"}]
+                        "attrs": {
+                            "language": "python"
+                        },
+                        "content": [
+                            {
+                                "text": "def hello_world():\n    \"\"\"A simple greeting function.\"\"\"\n    message = \"Hello, Agent Espacio!\"\n    print(message)\n    return message\n\n# Call the function\nresult = hello_world()",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "heading",
+                        "attrs": {
+                            "level": 1,
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "10. Embedded Images",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Images can be aligned left, center, or right:",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "image",
+                        "attrs": {
+                            "alt": "Center aligned image",
+                            "src": "http://localhost:8000/assets/1d23199a-eea3-4398-ad81-e795b3098bf1/download?size=512",
+                            "title": null,
+                            "textAlign": "center",
+                            "data-asset-id": "1d23199a-eea3-4398-ad81-e795b3098bf1",
+                            "data-thumb-size": 512
+                        }
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "center"
+                        },
+                        "content": [
+                            {
+                                "text": "Center-aligned image with caption below.",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "image",
+                        "attrs": {
+                            "alt": "Default aligned image",
+                            "src": "http://localhost:8000/assets/bc8ab8be-9878-4075-96af-1e4056da4f20/download?size=512",
+                            "title": null,
+                            "textAlign": null,
+                            "data-asset-id": "bc8ab8be-9878-4075-96af-1e4056da4f20",
+                            "data-thumb-size": 512
+                        }
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "left"
+                        },
+                        "content": [
+                            {
+                                "text": "Default left-aligned image (no textAlign attribute).",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": null
+                        }
+                    },
+                    {
+                        "type": "image",
+                        "attrs": {
+                            "alt": "Right aligned image",
+                            "src": "http://localhost:8000/assets/95ffd488-3e4c-4a17-a4e3-c1d885c6e0d6/download?size=512",
+                            "title": null,
+                            "textAlign": "right",
+                            "data-asset-id": "95ffd488-3e4c-4a17-a4e3-c1d885c6e0d6",
+                            "data-thumb-size": 512
+                        }
+                    },
+                    {
+                        "type": "paragraph",
+                        "attrs": {
+                            "textAlign": "right"
+                        },
+                        "content": [
+                            {
+                                "text": "Right-aligned image with right-aligned caption.",
+                                "type": "text"
+                            }
+                        ]
                     }
                 ],
-                "linked_asset_ids": ["a1b2c3d4-..."]
+                "linked_asset_ids": [
+                    "10e4bd58-3a89-4af5-9550-0a67b41be6a8",
+                    "1d23199a-eea3-4398-ad81-e795b3098bf1",
+                    "bc8ab8be-9878-4075-96af-1e4056da4f20",
+                    "95ffd488-3e4c-4a17-a4e3-c1d885c6e0d6"
+                ]
             }
         },
         "icon": "note",
