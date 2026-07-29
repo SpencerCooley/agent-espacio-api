@@ -155,7 +155,20 @@ Currently supported:
 - **composer** — Curated story or collection that combines multiple artifacts and media assets (video, audio) in order. Like a blog post made of other artifacts. The `artifact_id` field in each section accepts both artifact UUIDs and video/audio asset UUIDs. Cannot nest other composers.
 - **repo** — Git repository for storing code, pages, and projects. Push files from your local machine via SSH and browse them in the Espacio UI. Supports static site publishing for embeddable modules.
 
-## 6. Static Site Publishing (Repo Artifacts)
+## 6. SSH Keys and Git Access (Human-Only Setup)
+
+AI agents may clone, push, and pull repo artifacts using normal git commands over SSH. The agent **assumes the machine already has valid SSH keys set up by the human user**.
+
+The agent does NOT:
+- Generate SSH keys (`ssh-keygen`, etc.)
+- Modify `~/.ssh/` or any SSH configuration
+- Call `POST /ssh-keys` on behalf of the human
+- Attempt to fix SSH permissions or diagnose auth issues
+
+If a git operation fails with a permission error, tell the human:
+"Please add your SSH public key to Agent Espacio via Settings > SSH Keys, then try again."
+
+## 7. Static Site Publishing (Repo Artifacts)
 
 Repo artifacts can be published as static sites served from `/published/{slug}/`. This is designed for **self-contained HTML modules** — interactive charts, slideshows, motion graphics, data visualizations, or any rich content that should be embeddable in compositions or viewable publicly.
 
@@ -170,10 +183,10 @@ Repo artifacts can be published as static sites served from `/published/{slug}/`
 
 ### Workflow
 1. Create a repo artifact in Agent Espacio (or use an existing one)
-2. Clone it locally via SSH: `git clone ssh://git@<GIT_HOST>:2222/repos/{artifact_id}.git` (replace `<GIT_HOST>` with the hostname configured for the git server, e.g. `localhost` for local development or `api-agentespacio.spencercooley.com` for production)
-3. Write your module (HTML, CSS, JS, or a Vite project with `base: './'`)
-4. Push: `git push origin main`
-5. In the Espacio UI, click the gear icon on the repo artifact, choose "Static Site", configure a slug, optionally add a build command (e.g., `npm run build`) and output directory (e.g., `dist`), then save.
+2. Report the SSH URL to the human: `ssh://git@<GIT_HOST>:2222/repos/{artifact_id}.git`
+3. The agent may clone locally using normal git commands (assuming SSH is already configured)
+4. The agent may push code from the local workspace
+5. In the Espacio UI, the human configures static site publishing if needed
 6. Click "Deploy" in the header. The system clones the repo, optionally runs the build, and copies the output to `/published/{slug}/`.
 7. The site is now accessible at `https://cooleylabs.com/published/{slug}/` (or your configured `PUBLIC_URL`)
 
@@ -253,7 +266,7 @@ PUT    ${AGENT_ESPACIO_API}/themes/{theme_id}
 DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 ```
 
-## 8. Important Rules
+## 9. Important Rules
 
 - Folder names are not unique (like a normal filesystem)
 - Deleting a folder recursively deletes ALL contents inside it (subfolders, assets, artifacts)
@@ -264,7 +277,7 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 - Items in a folder are always sorted alphabetically by name
 - **Prefer search over recursive listing** — When looking for a specific item, use `GET /folders/{id}/search?q=...` instead of walking the folder tree
 
-## 9. Common Workflows
+## 10. Common Workflows
 
 ### Create a project with a note
 1. Create folder: POST /folders {"name": "Project Alpha", "parent_id": "..."}
@@ -287,7 +300,7 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 2. Search: GET /public/search/{public_magic_id}?q=search-term
 3. No authentication needed — only public items are returned
 
-## 10. API Endpoints Reference
+## 11. API Endpoints Reference
 
 ### Folders
 - GET /folders — List folder tree
