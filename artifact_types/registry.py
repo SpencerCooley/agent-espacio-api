@@ -983,16 +983,23 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             '  ]\n'
             "}\n\n"
             "SECTIONS:\n"
-            "  Each section references an existing artifact by UUID. The caption is optional text displayed under the rendered section.\n"
-            "  Sections are rendered in order. Each artifact type has its own composer view:\n"
+            "  Each section references an existing artifact or media asset by UUID.\n"
+            "  The `artifact_id` field accepts both artifact UUIDs and video/audio asset UUIDs.\n"
+            "  The caption is optional text displayed under the rendered section.\n"
+            "  Sections are rendered in order. Each item type has its own composer view:\n"
             "    - note: Full content rendered inline\n"
             "    - map: Static map thumbnail with bounding box, non-interactive, 'View full map' button\n"
             "    - gallery: 3 image thumbnails with count badge, 'View gallery' button\n"
-            "    - workflow: Graph preview (pan-only, no interaction), 'View workflow' button\n\n"
+            "    - workflow: Graph preview (pan-only, no interaction), 'View workflow' button\n"
+            "    - repo: Embedded static site or code preview\n"
+            "    - video asset: Embedded video player with playback controls\n"
+            "    - audio asset: Embedded audio player with playback controls\n\n"
             "IMPORTANT RULES:\n"
             "  1. A composition CANNOT reference another composition. The API will reject nested composers.\n"
             "  2. If a referenced artifact is deleted, the section shows a placeholder.\n"
-            "  3. Sub-artifacts referenced by a public composition are visible within that composition even if not individually public.\n\n"
+            "  3. Sub-artifacts referenced by a public composition are visible within that composition even if not individually public.\n"
+            "  4. Only video and audio assets can be added as composer sections.\n"
+            "     Image assets should be embedded in a note or gallery instead.\n\n"
             "WHEN CREATING A COMPOSITION VIA API:\n"
             '  POST /artifacts with body:\n'
             '  { "name": "My Story", "type": "composer", "folder_id": "...",\n'
@@ -1027,7 +1034,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                             "artifact_id": {
                                 "type": "string",
                                 "format": "uuid",
-                                "description": "UUID of the referenced artifact (cannot be another composer)"
+                                "description": "UUID of the referenced artifact or media asset (cannot be another composer)"
                             },
                             "caption": {
                                 "type": "string",
@@ -1052,6 +1059,10 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "artifact_id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
                         "caption": "Our hotel by the lake"
+                    },
+                    {
+                        "artifact_id": "d4e5f6a7-b8c9-0123-defa-456789012345",
+                        "caption": "Ambience of the old city"
                     }
                 ]
             }

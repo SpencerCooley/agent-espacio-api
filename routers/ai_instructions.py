@@ -152,7 +152,7 @@ Currently supported:
 - **workflow** — Visual process builder with directed graphs of nodes (actions, AI steps, human approvals, decisions, code, data references).
 - **map** — Interactive geospatial map with viewport state, GeoJSON features (points, lines, polygons), and linked workspace items.
 - **gallery** — Curated image collection with captions, drag-and-drop reordering, and multiple public layout modes (grid, carousel, masonry).
-- **composer** — Curated story or collection that combines multiple artifacts in order. Like a blog post made of other artifacts. Cannot nest other composers.
+- **composer** — Curated story or collection that combines multiple artifacts and media assets (video, audio) in order. Like a blog post made of other artifacts. The `artifact_id` field in each section accepts both artifact UUIDs and video/audio asset UUIDs. Cannot nest other composers.
 - **repo** — Git repository for storing code, pages, and projects. Push files from your local machine via SSH and browse them in the Espacio UI. Supports static site publishing for embeddable modules.
 
 ## 6. Static Site Publishing (Repo Artifacts)
