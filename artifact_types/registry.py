@@ -48,7 +48,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  - bulletList: Unordered list. Contains listItem children.\n"
             "  - orderedList: Ordered list. Contains listItem children.\n"
             "  - taskList: Checklist/task list. Contains taskItem children. Uses checkbox-style toggles.\n"
-            "  - taskItem: A single checklist item. attrs: { checked: true|false }. Contains paragraph children. Nested lists supported.\n"
+            "  - taskItem: A single checklist item. attrs: { checked: True|False }. Contains paragraph children. Nested lists supported.\n"
             "  - listItem: A single list item. Contains paragraph children.\n"
             "  - codeBlock: Preformatted code block. Optional attrs: { language: '...' }.\n"
             "  - blockquote: Blockquote style.\n"
@@ -195,7 +195,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                         "attrs": {
                             "alt": "Cover image - center aligned",
                             "src": "http://localhost:8000/assets/10e4bd58-3a89-4af5-9550-0a67b41be6a8/download?size=512",
-                            "title": null,
+                            "title": None,
                             "textAlign": "center",
                             "data-asset-id": "10e4bd58-3a89-4af5-9550-0a67b41be6a8",
                             "data-thumb-size": 512
@@ -233,7 +233,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -345,8 +345,8 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                         "attrs": {
                                             "rel": "noopener noreferrer nofollow",
                                             "href": "https://espacio.ai",
-                                            "class": null,
-                                            "title": null,
+                                            "class": None,
+                                            "title": None,
                                             "target": "_blank"
                                         }
                                     }
@@ -361,7 +361,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -534,7 +534,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -601,7 +601,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -704,7 +704,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -713,7 +713,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -842,7 +842,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "orderedList",
                         "attrs": {
-                            "type": null,
+                            "type": None,
                             "start": 1
                         },
                         "content": [
@@ -917,7 +917,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                             {
                                 "type": "taskItem",
                                 "attrs": {
-                                    "checked": true
+                                    "checked": True
                                 },
                                 "content": [
                                     {
@@ -937,7 +937,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                             {
                                 "type": "taskItem",
                                 "attrs": {
-                                    "checked": true
+                                    "checked": True
                                 },
                                 "content": [
                                     {
@@ -957,7 +957,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                             {
                                 "type": "taskItem",
                                 "attrs": {
-                                    "checked": false
+                                    "checked": False
                                 },
                                 "content": [
                                     {
@@ -977,7 +977,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                             {
                                 "type": "taskItem",
                                 "attrs": {
-                                    "checked": false
+                                    "checked": False
                                 },
                                 "content": [
                                     {
@@ -999,7 +999,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -1130,7 +1130,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "orderedList",
                         "attrs": {
-                            "type": null,
+                            "type": None,
                             "start": 1
                         },
                         "content": [
@@ -1152,7 +1152,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "orderedList",
                                         "attrs": {
-                                            "type": null,
+                                            "type": None,
                                             "start": 1
                                         },
                                         "content": [
@@ -1174,7 +1174,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                                     {
                                                         "type": "orderedList",
                                                         "attrs": {
-                                                            "type": null,
+                                                            "type": None,
                                                             "start": 1
                                                         },
                                                         "content": [
@@ -1208,7 +1208,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -1217,7 +1217,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -1253,7 +1253,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -1290,16 +1290,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableHeader",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1318,16 +1318,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableHeader",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1346,16 +1346,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableHeader",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1379,16 +1379,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableCell",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1402,16 +1402,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableCell",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1430,16 +1430,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableCell",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1458,16 +1458,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableCell",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1495,16 +1495,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableCell",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1518,16 +1518,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableCell",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1546,16 +1546,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableCell",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1574,16 +1574,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableCell",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1602,16 +1602,16 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                                     {
                                         "type": "tableCell",
                                         "attrs": {
-                                            "align": null,
+                                            "align": None,
                                             "colspan": 1,
                                             "rowspan": 1,
-                                            "colwidth": null
+                                            "colwidth": None
                                         },
                                         "content": [
                                             {
                                                 "type": "paragraph",
                                                 "attrs": {
-                                                    "textAlign": null
+                                                    "textAlign": None
                                                 },
                                                 "content": [
                                                     {
@@ -1629,7 +1629,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -1672,7 +1672,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -1705,7 +1705,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                         "attrs": {
                             "alt": "Center aligned image",
                             "src": "http://localhost:8000/assets/1d23199a-eea3-4398-ad81-e795b3098bf1/download?size=512",
-                            "title": null,
+                            "title": None,
                             "textAlign": "center",
                             "data-asset-id": "1d23199a-eea3-4398-ad81-e795b3098bf1",
                             "data-thumb-size": 512
@@ -1726,7 +1726,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -1734,8 +1734,8 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                         "attrs": {
                             "alt": "Default aligned image",
                             "src": "http://localhost:8000/assets/bc8ab8be-9878-4075-96af-1e4056da4f20/download?size=512",
-                            "title": null,
-                            "textAlign": null,
+                            "title": None,
+                            "textAlign": None,
                             "data-asset-id": "bc8ab8be-9878-4075-96af-1e4056da4f20",
                             "data-thumb-size": 512
                         }
@@ -1755,7 +1755,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                     {
                         "type": "paragraph",
                         "attrs": {
-                            "textAlign": null
+                            "textAlign": None
                         }
                     },
                     {
@@ -1763,7 +1763,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                         "attrs": {
                             "alt": "Right aligned image",
                             "src": "http://localhost:8000/assets/95ffd488-3e4c-4a17-a4e3-c1d885c6e0d6/download?size=512",
-                            "title": null,
+                            "title": None,
                             "textAlign": "right",
                             "data-asset-id": "95ffd488-3e4c-4a17-a4e3-c1d885c6e0d6",
                             "data-thumb-size": 512
@@ -1883,7 +1883,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  PUT /artifacts/{id} with the full updated content.\n"
             "  The editor auto-saves (1.5s debounce) so batch changes before saving.\n\n"
             "SHARING WORKFLOWS:\n"
-            "  Workflows can be made public via is_public=true. This generates a public_magic_id\n"
+            "  Workflows can be made public via is_public=True. This generates a public_magic_id\n"
             "  that allows anyone to view the workflow without authentication.\n"
             "  Public workflows are read-only."
         ),
@@ -1972,7 +1972,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                 "public_magic_id": {
                     "type": "string",
                     "format": "uuid",
-                    "description": "Auto-generated public access token (set when is_public=true)"
+                    "description": "Auto-generated public access token (set when is_public=True)"
                 }
             }
         },
@@ -2111,7 +2111,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             '          "associations": [\n'
             '            { "type": "artifact", "id": "uuid", "name": "Flight Plan", "kind": "note" }\n'
             '          ],\n'
-            '          "metadata": { "altitude": "100m", "restricted": true }\n'
+            '          "metadata": { "altitude": "100m", "restricted": True }\n'
             '        }\n'
             '      }\n'
             '    ]\n'
