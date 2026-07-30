@@ -1862,19 +1862,32 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "     - stills/ = original images, animated/ = generated videos, parent/ = final output\n"
             "  2. Not reading readme nodes before execution. They contain prerequisites.\n"
             "  3. Forgetting to handle 'human_in_loop' nodes — you must wait for human confirmation.\n"
-            "  4. Using decision nodes without proper sourceHandle values on edges.\n"
+            "  4. Using decision nodes without matching edge labels. Each outgoing edge must have\n"
+            "     a 'label' that matches one of the condition labels in the decision node.\n"
             "  5. Creating duplicate asset IDs when uploading files. Always check if the file exists first.\n"
             "  6. Not cleaning up temp files after execution. Always delete /tmp/ workspace after completion.\n"
-            "  7. Using 'workflow_reference' without verifying the referenced workflow exists.\n\n"
+            "  7. Using 'workflow_reference' without verifying the referenced workflow exists.\n"
+            "  8. Nodes overlapping in the UI. Always provide spacious positions with ~200px vertical\n"
+            "     spacing and horizontal offsets for branch nodes.\n"
+            "  9. Referencing local workspace conventions (like '/ai-sessions/') in node descriptions.\n"
+            "     Workflow descriptions should be platform-agnostic.\n\n"
             "NODE TYPE DETAILS:\n"
             "  - espacio_action: The 'action' parameter must be one of:\n"
             "      create_folder, create_artifact, upload_asset, update_artifact, share_folder, share_asset\n"
             "    Each action requires specific additional parameters.\n"
             "  - decision: The 'conditions' array defines branches. Each condition has:\n"
             "      { label: 'Yes', target: 'node-id', criteria: 'width > height' }\n"
-            "    The edge from a decision node should have sourceHandle matching the label.\n"
+            "    The edge from a decision node MUST have a 'label' matching the condition label.\n"
+            "    The 'sourceHandle' field is used by the UI editor but is not required for API-created workflows.\n"
             "  - readme: No connection handles, no edges. Place at the top of the workflow for context.\n"
-            "    Use for: prerequisites, expected inputs, expected outputs, troubleshooting notes.\n\n"
+            "    Use for: prerequisites, expected inputs, expected outputs, troubleshooting notes.\n"
+            "  - ai_action: Use for AI generation tasks (images, text, video, audio).\n"
+            "    Use 'espacio_action' for workspace API operations, not 'ai_action'.\n\n"
+            "NODE POSITIONING:\n"
+            "  - Use ~200px vertical spacing between nodes (e.g., y: 200, y: 400, y: 600).\n"
+            "  - Offset branch nodes horizontally (e.g., +250px for right branches, -250px for left).\n"
+            "  - Place 'readme' nodes above the main flow (y: -100).\n"
+            "  - Decision nodes should have their branch targets offset to avoid overlap.\n\n"
             "WHEN CREATING A WORKFLOW VIA API:\n"
             "  POST /artifacts with body:\n"
             '  { "name": "...", "type": "workflow", "folder_id": "...",\n'
@@ -1978,91 +1991,309 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
         },
         "example_content": {
             "content": {
-                "viewport": {"x": 0, "y": 0, "zoom": 1},
+                "edges": [
+                    {
+                        "id": "e1",
+                        "label": "ready",
+                        "source": "setup",
+                        "target": "generate"
+                    },
+                    {
+                        "id": "e2",
+                        "label": "generated",
+                        "source": "generate",
+                        "target": "review"
+                    },
+                    {
+                        "id": "e3",
+                        "label": "reviewed",
+                        "source": "review",
+                        "target": "approved"
+                    },
+                    {
+                        "id": "e4",
+                        "label": "Yes",
+                        "source": "approved",
+                        "target": "gallery"
+                    },
+                    {
+                        "id": "e5",
+                        "label": "No",
+                        "source": "approved",
+                        "target": "post-mortem"
+                    },
+                    {
+                        "id": "e6",
+                        "label": "retry",
+                        "source": "post-mortem",
+                        "target": "generate"
+                    },
+                    {
+                        "id": "e7",
+                        "label": "created",
+                        "source": "gallery",
+                        "target": "generate-videos"
+                    },
+                    {
+                        "id": "e8",
+                        "label": "animated",
+                        "source": "generate-videos",
+                        "target": "concat-video"
+                    },
+                    {
+                        "id": "e9",
+                        "label": "concatenated",
+                        "source": "concat-video",
+                        "target": "upload-video"
+                    },
+                    {
+                        "id": "e10",
+                        "label": "uploaded",
+                        "source": "upload-video",
+                        "target": "want-composer"
+                    },
+                    {
+                        "id": "e11",
+                        "label": "Yes",
+                        "source": "want-composer",
+                        "target": "composer"
+                    },
+                    {
+                        "id": "e12",
+                        "label": "No",
+                        "source": "want-composer",
+                        "target": "done"
+                    },
+                    {
+                        "id": "e13",
+                        "label": "complete",
+                        "source": "composer",
+                        "target": "done"
+                    }
+                ],
                 "nodes": [
                     {
-                        "id": "node-readme",
+                        "id": "readme",
+                        "data": {
+                            "title": "Travel Story Workflow",
+                            "description": "Creates a travel story with AI-generated images, video gallery, and an optional composer.\n\nPrerequisites:\n- Destination name\n- Photo style preference\n\nSteps:\n1. Interview human about travel details\n2. Generate images with AI\n3. Human reviews\n4. If rejected: discuss and retry\n5. Create gallery in Espacio\n6. Generate videos from images\n7. Concatenate with ffmpeg\n8. Upload video\n9. Optionally create composer story"
+                        },
                         "type": "readme",
-                        "position": {"x": 100, "y": -50},
-                        "data": {
-                            "title": "Readme",
-                            "description": "This workflow generates ad variations from product photos.\\n\\nPrerequisites:\\n- Product photos in the workspace\\n- REPLICATE_API_TOKEN set\\n\\nOutput: 5 AI-generated variations in the variations/ folder",
-                            "parameters": {}
+                        "position": {
+                            "x": 100,
+                            "y": -100
                         }
                     },
                     {
-                        "id": "node-1",
+                        "id": "setup",
+                        "data": {
+                            "title": "Interview Human",
+                            "description": "Ask the human about their travel journey and collect details in preparation for image generation"
+                        },
                         "type": "action",
-                        "position": {"x": 100, "y": 100},
-                        "data": {
-                            "title": "Upload Product Photos",
-                            "description": "Upload raw product photos to the workspace",
-                            "parameters": {}
+                        "position": {
+                            "x": 100,
+                            "y": 50
                         }
                     },
                     {
-                        "id": "node-2",
-                        "type": "ai_action",
-                        "position": {"x": 350, "y": 100},
+                        "id": "generate",
                         "data": {
-                            "title": "Generate Variations",
-                            "description": "Use AI to generate ad variations",
-                            "prompt": "Generate 5 lifestyle variations of the product photo with different backgrounds and lighting.",
+                            "title": "Generate Travel Images",
+                            "prompt": "Generate 5 high-quality travel photographs of the destination with consistent lighting and composition style.",
                             "parameters": {
-                                "model": "wan-video/wan-2.7-i2v",
-                                "num_variations": 5
-                            }
+                                "count": 5,
+                                "model": "flux-schnell"
+                            },
+                            "description": "Use AI to generate 5 travel photos"
+                        },
+                        "type": "ai_action",
+                        "position": {
+                            "x": 100,
+                            "y": 200
                         }
                     },
                     {
-                        "id": "node-3",
-                        "type": "human_in_loop",
-                        "position": {"x": 600, "y": 100},
+                        "id": "review",
                         "data": {
-                            "title": "Review & Approve",
-                            "description": "Human reviews the generated variations",
+                            "title": "Review Images",
                             "parameters": {
                                 "approval_required": True
-                            }
+                            },
+                            "description": "Human reviews the generated travel photos"
+                        },
+                        "type": "human_in_loop",
+                        "position": {
+                            "x": 100,
+                            "y": 350
                         }
                     },
                     {
-                        "id": "node-4",
-                        "type": "espacio_action",
-                        "position": {"x": 850, "y": 100},
+                        "id": "approved",
                         "data": {
-                            "title": "Create Public Gallery",
-                            "description": "Create a folder and share the approved images",
+                            "title": "Images Approved?",
                             "parameters": {
-                                "action": "create_folder",
-                                "folder_name": "Approved Ad Variations"
-                            }
+                                "conditions": [
+                                    {
+                                        "label": "Yes",
+                                        "target": "gallery",
+                                        "criteria": "Approved"
+                                    },
+                                    {
+                                        "label": "No",
+                                        "target": "post-mortem",
+                                        "criteria": "Discuss and retry"
+                                    }
+                                ]
+                            },
+                            "description": "Branch based on human review"
+                        },
+                        "type": "decision",
+                        "position": {
+                            "x": 100,
+                            "y": 500
+                        }
+                    },
+                    {
+                        "id": "post-mortem",
+                        "data": {
+                            "title": "Discuss and Refine",
+                            "prompt": "The human rejected the generated images. Ask what specifically was wrong (style, subject, quality, etc.) and propose a revised prompt or concept. Update the session notes with the feedback.",
+                            "parameters": {},
+                            "description": "Discuss with human why images were rejected and refine prompt/concept"
+                        },
+                        "type": "ai_action",
+                        "position": {
+                            "x": -200,
+                            "y": 500
+                        }
+                    },
+                    {
+                        "id": "gallery",
+                        "data": {
+                            "title": "Create Gallery",
+                            "parameters": {
+                                "name": "Travel Photos",
+                                "type": "gallery",
+                                "action": "create_artifact"
+                            },
+                            "description": "Create a gallery artifact in Agent Espacio"
+                        },
+                        "type": "espacio_action",
+                        "position": {
+                            "x": 350,
+                            "y": 500
+                        }
+                    },
+                    {
+                        "id": "generate-videos",
+                        "data": {
+                            "title": "Generate Videos from Images",
+                            "prompt": "For each generated travel image, use an image-to-video model (e.g., wan-video/wan-2.2-i2v-fast) to create a 3-second animated clip. Save as MP4.",
+                            "parameters": {
+                                "model": "wan-video/wan-2.2-i2v-fast",
+                                "duration": 3
+                            },
+                            "description": "Use Replicate API to animate each image into a short video"
+                        },
+                        "type": "ai_action",
+                        "position": {
+                            "x": 350,
+                            "y": 700
+                        }
+                    },
+                    {
+                        "id": "concat-video",
+                        "data": {
+                            "code": "import subprocess\nimport glob\n\nfiles = sorted(glob.glob('*.mp4'))\nwith open('concat_list.txt', 'w') as f:\n    for file in files:\n        f.write(f\"file '{file}'\n\")\n\nsubprocess.run([\n    'ffmpeg', '-f', 'concat', '-safe', '0', '-i', 'concat_list.txt',\n    '-c', 'copy', 'travel_montage.mp4'\n])",
+                            "title": "Concatenate Videos",
+                            "description": "Use ffmpeg to concatenate all video clips into one travel montage"
+                        },
+                        "type": "code",
+                        "position": {
+                            "x": 350,
+                            "y": 900
+                        }
+                    },
+                    {
+                        "id": "upload-video",
+                        "data": {
+                            "title": "Upload Video",
+                            "parameters": {
+                                "file": "travel_montage.mp4",
+                                "action": "upload_asset"
+                            },
+                            "description": "Upload the concatenated travel montage to Espacio"
+                        },
+                        "type": "espacio_action",
+                        "position": {
+                            "x": 350,
+                            "y": 1100
+                        }
+                    },
+                    {
+                        "id": "want-composer",
+                        "data": {
+                            "title": "Create Composer Story?",
+                            "parameters": {
+                                "conditions": [
+                                    {
+                                        "label": "Yes",
+                                        "target": "composer",
+                                        "criteria": "Build story"
+                                    },
+                                    {
+                                        "label": "No",
+                                        "target": "done",
+                                        "criteria": "Finish"
+                                    }
+                                ]
+                            },
+                            "description": "Does the human want a composed story?"
+                        },
+                        "type": "decision",
+                        "position": {
+                            "x": 350,
+                            "y": 1300
+                        }
+                    },
+                    {
+                        "id": "composer",
+                        "data": {
+                            "title": "Create Composer",
+                            "parameters": {
+                                "name": "My Travel Story",
+                                "type": "composer",
+                                "action": "create_artifact"
+                            },
+                            "description": "Create a composer story with gallery + video"
+                        },
+                        "type": "espacio_action",
+                        "position": {
+                            "x": 600,
+                            "y": 1300
+                        }
+                    },
+                    {
+                        "id": "done",
+                        "data": {
+                            "title": "Done",
+                            "description": "Notify the user of the finished task and write a short review of accomplishments"
+                        },
+                        "type": "action",
+                        "position": {
+                            "x": 600,
+                            "y": 1500
                         }
                     }
                 ],
-                "edges": [
-                    {
-                        "id": "edge-1",
-                        "source": "node-1",
-                        "target": "node-2",
-                        "label": "photos uploaded"
-                    },
-                    {
-                        "id": "edge-2",
-                        "source": "node-2",
-                        "target": "node-3",
-                        "label": "variations generated"
-                    },
-                    {
-                        "id": "edge-3",
-                        "source": "node-3",
-                        "target": "node-4",
-                        "label": "approved"
-                    }
-                ]
+                "viewport": {
+                    "x": 0,
+                    "y": 0,
+                    "zoom": 1
+                }
             }
         },
-        "icon": "account_tree",
         "category": "orchestration"
     },
     "map": {
