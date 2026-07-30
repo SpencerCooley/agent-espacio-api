@@ -2294,6 +2294,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                 }
             }
         },
+        "icon": "account_tree",
         "category": "orchestration"
     },
     "map": {
