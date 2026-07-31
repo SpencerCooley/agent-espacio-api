@@ -1796,6 +1796,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
     "workflow": {
         "key": "workflow",
         "name": "Workflow",
+        "icon": "workflow",
         "description": "Visual, collaborative process builder for repeatable agentic workflows. Nodes + edges represent actions, AI steps, human approvals, and decisions.",
         "ai_instructions": (
             "Use this artifact to design and execute repeatable agentic processes. "
