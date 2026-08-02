@@ -203,7 +203,7 @@ def enrich_content_with_signed_urls(content: dict, expiry_seconds: int = 3600) -
     signed_urls = {}
     for asset_id in asset_ids:
         try:
-            signed_urls[asset_id] = generate_signed_url(asset_id, size=512, expiry_seconds=expiry_seconds)
+            signed_urls[asset_id] = generate_signed_url(asset_id, expiry_seconds=expiry_seconds)
         except Exception:
             pass
     
