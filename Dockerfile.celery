@@ -2,7 +2,8 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (includes ffmpeg + OpenGL/Mesa for thumbnails,
+# plus Node.js for static-site builds)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         postgresql-client \
@@ -10,7 +11,13 @@ RUN apt-get update && \
         gcc \
         python3-dev \
         curl \
-        git && \
+        git \
+        ffmpeg \
+        libegl1 \
+        libgles2 \
+        libgl1 \
+        libgl1-mesa-dri \
+        libgomp1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -33,6 +40,8 @@ COPY . .
 
 # Set Python path
 ENV PYTHONPATH=/app
+# Offscreen OpenGL rendering (EGL + Mesa llvmpipe) for GLB thumbnails
+ENV PYOPENGL_PLATFORM=egl
 
 # Default command (will be overridden in docker-compose)
 CMD ["celery", "-A", "celery_app.celery_app", "worker", "--loglevel=info", "-c", "4"]

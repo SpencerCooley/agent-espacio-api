@@ -288,6 +288,7 @@ def generate_thumbnails_task(self, asset_id_str: str, source_path: str, mime_typ
             return {"status": "error", "detail": "Asset not found"}
 
         file_meta = dict(asset.file_meta or {})
+        had_thumbnails_before = bool(file_meta.get("thumbnails"))
 
         if mime_type.startswith("image/"):
             thumbnails, image_info = generate_thumbnails(asset.id, source_path)
@@ -296,24 +297,34 @@ def generate_thumbnails_task(self, asset_id_str: str, source_path: str, mime_typ
             if thumbnails:
                 file_meta.setdefault("thumbnails", {})
                 file_meta["thumbnails"].update(thumbnails)
+            else:
+                print(f"[THUMBNAILS] No image thumbnails generated for {asset_id_str}", flush=True)
 
         if mime_type.startswith("video/"):
             video_thumbnails = generate_video_thumbnail(asset.id, source_path)
             if video_thumbnails:
                 file_meta.setdefault("thumbnails", {})
                 file_meta["thumbnails"].update(video_thumbnails)
+            else:
+                print(f"[THUMBNAILS] No video thumbnails generated for {asset_id_str}", flush=True)
 
         if mime_type == "model/gltf-binary":
             glb_thumbnails = generate_glb_thumbnail(asset.id, source_path)
             if glb_thumbnails:
                 file_meta.setdefault("thumbnails", {})
                 file_meta["thumbnails"].update(glb_thumbnails)
+            else:
+                print(f"[THUMBNAILS] No GLB thumbnails generated for {asset_id_str}", flush=True)
 
         asset.file_meta = file_meta
         flag_modified(asset, "file_meta")
         db.commit()
 
-        return {"status": "success", "thumbnails": list(file_meta.get("thumbnails", {}).keys())}
+        thumbnail_keys = list(file_meta.get("thumbnails", {}).keys())
+        if not thumbnail_keys and not had_thumbnails_before:
+            print(f"[THUMBNAILS] Task completed but no thumbnails for {asset_id_str}", flush=True)
+
+        return {"status": "success", "thumbnails": thumbnail_keys}
 
     except Exception as e:
         try:
