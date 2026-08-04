@@ -7,6 +7,7 @@ All files are stored with ID-based naming for easy correlation with database rec
 import os
 import shutil
 import mimetypes
+import threading
 from pathlib import Path
 from typing import Optional, Tuple
 from uuid import UUID
@@ -77,6 +78,8 @@ def get_mime_type(filename: str, file_content: Optional[bytes] = None) -> str:
         ".svg": "image/svg+xml",
         ".pdf": "application/pdf",
         ".csv": "text/csv",
+        ".glb": "model/gltf-binary",
+        ".gltf": "model/gltf+json",
     }
     
     return fallback_types.get(ext, "application/octet-stream")
@@ -478,6 +481,174 @@ def generate_video_thumbnail(asset_id: UUID, source_path: str) -> dict:
             pass  # Skip this size if extraction fails
 
     return thumbnails
+
+
+GLB_THUMBNAIL_BACKDROP = (120, 133, 155)
+"""Neutral light-gray backdrop (RGB) composited behind GLB thumbnail renders."""
+
+_glb_render_lock = threading.Lock()
+"""Serialize GLB renders — pyrender's OffscreenRenderer holds a global EGL context."""
+
+
+def _mesh_center_extent(bounds):
+    """Return (center, extent) for an AABB array of shape (2, 3)."""
+    if bounds is None:
+        return (0.0, 0.0, 0.0), (1.0, 1.0, 1.0)
+    center = (bounds[0] + bounds[1]) / 2.0
+    extent = bounds[1] - bounds[0]
+    return center, extent
+
+
+def _look_at_pose(eye, target, up=(0.0, 1.0, 0.0)):
+    """Build a 4x4 view pose with -Z pointing from eye toward target."""
+    import numpy as np
+
+    eye = np.asarray(eye, dtype=float)
+    target = np.asarray(target, dtype=float)
+    up = np.asarray(up, dtype=float)
+
+    z = eye - target  # camera +Z points back at the eye so -Z aims at target
+    norm = np.linalg.norm(z)
+    if norm < 1e-9:
+        z = np.array([0.0, 0.0, 1.0])
+    else:
+        z = z / norm
+
+    x = np.cross(up, z)
+    if np.linalg.norm(x) < 1e-9:
+        x = np.array([1.0, 0.0, 0.0])
+    else:
+        x = x / np.linalg.norm(x)
+    y = np.cross(z, x)
+
+    pose = np.eye(4)
+    pose[:3, 0] = x
+    pose[:3, 1] = y
+    pose[:3, 2] = z
+    pose[:3, 3] = eye
+    return pose
+
+
+def generate_glb_thumbnail(asset_id: UUID, source_path: str) -> dict:
+    """
+    Generate thumbnails for a GLB/GLTF 3D asset by offscreen rendering.
+
+    Args:
+        asset_id: The asset UUID (used for naming thumbnails)
+        source_path: Path to the original GLB/GLTF file
+
+    Returns:
+        dict mapping size -> {w, h, size_bytes}
+
+    Renders the mesh once at 512x512 with pyrender (EGL + Mesa software
+    rendering), composites onto a neutral gray backdrop, then downscales to
+    256. Returns an empty dict if the renderer is unavailable or rendering
+    fails (silent fallback, matching the image/video thumbnail behavior).
+    """
+    try:
+        import numpy as np
+        import trimesh
+        import pyrender
+        from PIL import Image, ImageFilter
+    except Exception:
+        return {}
+
+    try:
+        with _glb_render_lock:
+            loaded = trimesh.load(source_path, process=False)
+
+            scene = pyrender.Scene()
+            if isinstance(loaded, trimesh.Scene):
+                # dump() returns copies of each geometry baked to its instance
+                # (world) transform, preserving per-mesh materials/textures.
+                geometries = loaded.dump()
+                bounds = loaded.bounds
+            else:
+                geometries = [loaded]
+                bounds = loaded.bounds
+
+            for geom in geometries:
+                if geom is None or len(geom.vertices) == 0:
+                    continue
+                scene.add(pyrender.Mesh.from_trimesh(geom, smooth=True))
+
+            renderer = pyrender.OffscreenRenderer(512, 512)
+            try:
+                # Key light from above-front
+                light_dir = np.array([1.0, 1.5, 1.0])
+                light_dir = light_dir / np.linalg.norm(light_dir)
+                light_pose = _look_at_pose(-light_dir, np.zeros(3))
+                scene.add(
+                    pyrender.DirectionalLight(color=[1.0, 1.0, 1.0], intensity=1.0),
+                    pose=light_pose,
+                )
+
+                # Soft fill from the opposite side
+                fill_pose = _look_at_pose(light_dir, np.zeros(3))
+                scene.add(
+                    pyrender.DirectionalLight(color=[0.55, 0.6, 0.7], intensity=0.5),
+                    pose=fill_pose,
+                )
+
+                # Ambient fill (pyrender has no HemisphereLight primitive; use
+                # Scene.ambient_light, a scalar or 0-1 vector scalar multiplier)
+                scene.ambient_light = np.array([0.18, 0.18, 0.22])
+
+                # Fit camera to the mesh bounding box
+                center, extent = _mesh_center_extent(bounds)
+                radius = float(np.linalg.norm(extent))
+                if radius < 1e-6:
+                    radius = 1.0
+                yfov = float(np.deg2rad(40))
+                distance = radius / (2.0 * np.tan(yfov / 2.0)) * 1.35
+                camera_pose = _look_at_pose(
+                    [center[0], center[1] + distance * 0.25, center[2] + distance],
+                    center,
+                )
+                camera = pyrender.PerspectiveCamera(yfov=yfov, aspectRatio=1.0)
+                scene.add(camera, pose=camera_pose)
+
+                color, depth = renderer.render(scene)
+            finally:
+                renderer.delete()
+
+            color_arr = np.asarray(color)
+            depth_arr = np.asarray(depth)
+
+            # Build a foreground mask from the depth buffer and composite the
+            # render onto the backdrop. This guarantees the model silhouette is
+            # visible even for light-colored scans that the (previously white)
+            # render would wash out against a light backdrop.
+            rgb = color_arr[:, :, :3].astype(np.uint8)
+            if depth_arr.ndim == 2 and depth_arr.size:
+                # pyrender depth buffer: background is cleared to the minimum
+                # (0.0), drawn model pixels are view-space depth > 0.
+                fg = depth_arr > depth_arr.min() + 1e-6
+                alpha = np.where(fg, 255, 0).astype(np.uint8)
+            else:
+                alpha = np.full((rgb.shape[0], rgb.shape[1]), 255, np.uint8)
+            rgba = np.dstack([rgb, alpha])
+            image = Image.fromarray(rgba, mode="RGBA")
+            # Feather the alpha edge 1px so the silhouette blends onto the
+            # backdrop instead of looking cut with a hard 1px halo.
+            image.putalpha(image.getchannel("A").filter(ImageFilter.GaussianBlur(0.8)))
+            backdrop = Image.new("RGBA", image.size, (*GLB_THUMBNAIL_BACKDROP, 255))
+            img = Image.alpha_composite(backdrop, image).convert("RGB")
+
+            thumbnails = {}
+            for size in (512, 256):
+                thumb = img.resize((size, size), Image.LANCZOS) if size < 512 else img
+                thumb_filename = f"{asset_id}_thumb_{size}.webp"
+                thumb_path = os.path.join(ASSETS_DIR, thumb_filename)
+                thumb.save(thumb_path, "WEBP", quality=85, method=6)
+                thumbnails[str(size)] = {
+                    "w": thumb.width,
+                    "h": thumb.height,
+                    "size_bytes": os.path.getsize(thumb_path),
+                }
+            return thumbnails
+    except Exception:
+        return {}
 
 
 def delete_thumbnails(asset_id: UUID):

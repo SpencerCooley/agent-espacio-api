@@ -10,7 +10,12 @@ RUN apt-get update && \
         gcc \
         python3-dev \
         ffmpeg \
-        git && \
+        git \
+        libegl1 \
+        libgles2 \
+        libgl1 \
+        libgl1-mesa-dri \
+        libgomp1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -26,6 +31,8 @@ EXPOSE 8000
 
 # Set Python path
 ENV PYTHONPATH=/app
+# Offscreen OpenGL rendering (EGL + Mesa llvmpipe) for GLB thumbnails
+ENV PYOPENGL_PLATFORM=egl
 
 # Copy and set up startup script
 COPY start.sh /app/start.sh

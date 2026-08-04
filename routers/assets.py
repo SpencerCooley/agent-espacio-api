@@ -185,10 +185,10 @@ def _serve_asset_file(asset, request: Request, size: int = None):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid thumbnail size. Supported sizes: {THUMBNAIL_SIZES}"
             )
-        if not asset.is_image and not asset.mime_type.startswith("video/"):
+        if not asset.is_image and not asset.mime_type.startswith("video/") and asset.mime_type != "model/gltf-binary":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Thumbnails are only available for image and video assets"
+                detail="Thumbnails are only available for image, video, and GLB assets"
             )
         if not thumbnail_exists(asset.id, size):
             if asset.mime_type.startswith("video/"):

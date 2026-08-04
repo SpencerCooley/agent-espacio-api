@@ -17,6 +17,7 @@ from services.file_storage import (
     validate_file_size,
     generate_thumbnails,
     generate_video_thumbnail,
+    generate_glb_thumbnail,
     read_text_file,
 )
 
@@ -92,6 +93,16 @@ def create_asset(
             if "thumbnails" not in file_meta:
                 file_meta["thumbnails"] = {}
             file_meta["thumbnails"].update(video_thumbnails)
+
+    # Generate thumbnail for GLB/GLTF 3D files
+    if mime_type == "model/gltf-binary":
+        glb_thumbnails = generate_glb_thumbnail(asset_id, saved_path)
+        if glb_thumbnails:
+            if file_meta is None:
+                file_meta = {}
+            if "thumbnails" not in file_meta:
+                file_meta["thumbnails"] = {}
+            file_meta["thumbnails"].update(glb_thumbnails)
 
     # Extract preview for markdown files
     if mime_type in ("text/markdown", "text/x-markdown"):
