@@ -82,7 +82,7 @@ async def upload_asset(
     """
     Upload a new file as an asset.
     
-    - **file**: The file to upload (max 50MB)
+    - **file**: The file to upload (max 1000MB)
     - **folder_id**: Optional parent folder ID (omit for root/My Drive)
     
     Supported file types: Images (.png, .jpg, .gif), Markdown (.md), and more.
