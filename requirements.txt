@@ -24,8 +24,10 @@ passlib>=1.7.4
 Pillow>=10.0.0
 
 # 3D (GLB/GLTF) thumbnail rendering
+# NOTE: pyrender pins PyOpenGL==3.1.0 (numpy-2 incompatible). The Dockerfiles
+# upgrade PyOpenGL to 3.1.10 after install — keep the pin out of this file or
+# pip resolution fails.
 pyrender>=0.1.45
-PyOpenGL>=3.1.9
 trimesh>=4.0.0
 opencv-python-headless>=4.8.0.76
 

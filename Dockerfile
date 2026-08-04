@@ -21,7 +21,11 @@ RUN apt-get update && \
 
 # Copy and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    # pyrender pins PyOpenGL==3.1.0 (numpy-2 incompatible, crashes in glGenTextures);
+    # upgrade it to a numpy-2-compatible release. --no-deps avoids re-resolving
+    # against pyrender's hard pin.
+    pip install --no-cache-dir --upgrade --no-deps "PyOpenGL==3.1.10"
 
 # Copy application code
 COPY . .
