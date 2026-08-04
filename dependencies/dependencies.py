@@ -26,18 +26,20 @@ from utils.api_key import hash_api_key
 # Database Dependency
 # ============================================================================
 
-async def get_db() -> Generator[Session, None, None]:
+DATABASE_URL = os.environ.get(
+    'DATABASE_URL', 'postgresql://agentespacio:agentespacio@db:5432/agentespacio_db'
+)
+_engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+_SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+
+
+def get_db() -> Generator[Session, None, None]:
     """
     Dependency to get a database session.
-    
-    Yields a SQLAlchemy session that is automatically closed after use.
+
+    Yields a SQLAlchemy session backed by a shared connection pool.
     """
-    DATABASE_URL = os.environ.get('DATABASE_URL', 
-        'postgresql://agentespacio:agentespacio@db:5432/agentespacio_db')
-    engine = create_engine(DATABASE_URL)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    
-    db = SessionLocal()
+    db = _SessionLocal()
     try:
         yield db
     finally:

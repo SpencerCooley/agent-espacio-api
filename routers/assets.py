@@ -73,7 +73,7 @@ async def list_assets(
 
 
 @router.post("/upload", response_model=AssetUploadResponse, status_code=status.HTTP_201_CREATED)
-async def upload_asset(
+def upload_asset(
     file: UploadFile = File(..., description="File to upload"),
     folder_id: UUID = Form(None, description="Parent folder ID (optional)"),
     current_user: Optional[User] = Depends(require_auth),

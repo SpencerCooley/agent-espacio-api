@@ -1,0 +1,15 @@
+services:
+  api:
+    command: ["./start_prod.sh"]
+    volumes:
+      - ./storage:/app/storage
+    deploy:
+      replicas: 1
+
+  celery_workers:
+    deploy:
+      replicas: 1
+
+  test_db:
+    deploy:
+      replicas: 0
