@@ -15,11 +15,9 @@ from services.file_storage import (
     generate_storage_filename,
     save_uploaded_file,
     validate_file_size,
-    generate_thumbnails,
-    generate_video_thumbnail,
-    generate_glb_thumbnail,
     read_text_file,
 )
+from celery_app.tasks import generate_thumbnails_task
 
 
 def create_asset(
@@ -73,45 +71,13 @@ def create_asset(
     # Move file from temp to assets directory
     saved_path = save_uploaded_file(temp_file_path, storage_filename)
 
-    # Generate thumbnails and extract image metadata for image files
+    # Extract preview for markdown files (lightweight — stays inline)
     file_meta = None
-    if mime_type.startswith("image/"):
-        thumbnails, image_info = generate_thumbnails(asset_id, saved_path)
-        if thumbnails or image_info:
-            file_meta = {}
-            if image_info:
-                file_meta.update(image_info)
-            if thumbnails:
-                file_meta["thumbnails"] = thumbnails
-
-    # Generate thumbnail for video files
-    if mime_type.startswith("video/"):
-        video_thumbnails = generate_video_thumbnail(asset_id, saved_path)
-        if video_thumbnails:
-            if file_meta is None:
-                file_meta = {}
-            if "thumbnails" not in file_meta:
-                file_meta["thumbnails"] = {}
-            file_meta["thumbnails"].update(video_thumbnails)
-
-    # Generate thumbnail for GLB/GLTF 3D files
-    if mime_type == "model/gltf-binary":
-        glb_thumbnails = generate_glb_thumbnail(asset_id, saved_path)
-        if glb_thumbnails:
-            if file_meta is None:
-                file_meta = {}
-            if "thumbnails" not in file_meta:
-                file_meta["thumbnails"] = {}
-            file_meta["thumbnails"].update(glb_thumbnails)
-
-    # Extract preview for markdown files
     if mime_type in ("text/markdown", "text/x-markdown"):
         try:
             content = read_text_file(storage_filename)
             preview = content[:300].strip()
-            if file_meta is None:
-                file_meta = {}
-            file_meta["preview"] = preview
+            file_meta = {"preview": preview}
         except Exception:
             pass
 
@@ -130,5 +96,10 @@ def create_asset(
     db.add(asset)
     db.commit()
     db.refresh(asset)
+
+    # Offload heavy thumbnail generation to a Celery worker so the API
+    # process never bloats with pyrender / ffmpeg / PIL allocations.
+    if mime_type.startswith("image/") or mime_type.startswith("video/") or mime_type == "model/gltf-binary":
+        generate_thumbnails_task.delay(str(asset_id), saved_path, mime_type)
 
     return asset

@@ -250,3 +250,77 @@ def deploy_repo_task(self, artifact_id_str: str, ref: str = ""):
     finally:
         db.close()
         engine.dispose()
+
+
+@celery_app.task(bind=True, max_retries=1, default_retry_delay=10)
+def generate_thumbnails_task(self, asset_id_str: str, source_path: str, mime_type: str):
+    """
+    Generate thumbnails for an asset in a background Celery worker.
+
+    Offloads heavy image / video / GLB processing from the API worker so that
+    large uploads never bloat the web-server process.
+
+    Args:
+        asset_id_str: UUID of the asset (as string)
+        source_path: Absolute path to the original asset file on disk
+        mime_type: MIME type of the asset
+
+    Returns:
+        dict: {"status": "success", "thumbnails": [...]} or error detail.
+    """
+    from services.file_storage import (
+        generate_thumbnails,
+        generate_video_thumbnail,
+        generate_glb_thumbnail,
+    )
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from models.asset import Asset
+
+    db_url = os.environ.get("DATABASE_URL", "postgresql://agentespacio:agentespacio@db:5432/agentespacio_db")
+    engine = create_engine(db_url)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    try:
+        asset = db.query(Asset).filter(Asset.id == UUID(asset_id_str)).first()
+        if not asset:
+            return {"status": "error", "detail": "Asset not found"}
+
+        file_meta = dict(asset.file_meta or {})
+
+        if mime_type.startswith("image/"):
+            thumbnails, image_info = generate_thumbnails(asset.id, source_path)
+            if image_info:
+                file_meta.update(image_info)
+            if thumbnails:
+                file_meta.setdefault("thumbnails", {})
+                file_meta["thumbnails"].update(thumbnails)
+
+        if mime_type.startswith("video/"):
+            video_thumbnails = generate_video_thumbnail(asset.id, source_path)
+            if video_thumbnails:
+                file_meta.setdefault("thumbnails", {})
+                file_meta["thumbnails"].update(video_thumbnails)
+
+        if mime_type == "model/gltf-binary":
+            glb_thumbnails = generate_glb_thumbnail(asset.id, source_path)
+            if glb_thumbnails:
+                file_meta.setdefault("thumbnails", {})
+                file_meta["thumbnails"].update(glb_thumbnails)
+
+        asset.file_meta = file_meta
+        flag_modified(asset, "file_meta")
+        db.commit()
+
+        return {"status": "success", "thumbnails": list(file_meta.get("thumbnails", {}).keys())}
+
+    except Exception as e:
+        try:
+            self.retry(exc=e)
+        except Exception:
+            return {"status": "error", "detail": str(e)}
+
+    finally:
+        db.close()
+        engine.dispose()
