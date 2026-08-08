@@ -96,7 +96,12 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  POST /artifacts with body:\n"
             '  { "name": "...", "type": "note", "folder_id": "...",\n'
             '    "content": { "type": "doc", "content": [...], "linked_asset_ids": [...] } }\n\n'
-            "IMPORTANT: Do NOT include a 'description' field. Notes do not have descriptions.\n\n"
+            "SOCIAL SHARING & DISCOVERABILITY:\n"
+            "  The artifact `description` field is used for Open Graph cards, Twitter previews, search results, and feed cards.\n"
+            "  Set a featured image by putting an image asset UUID in `meta.cover_asset_id`. The image appears in social\n"
+            "  cards, the public feed, and search engine rich results. Both fields are optional but strongly\n"
+            "  recommended for any note intended to be shared publicly or featured in the feed.\n"
+            "  Update them via PUT /artifacts/{id} with { \"description\": \"...\", \"meta\": { \"cover_asset_id\": \"uuid\" } }.\n\n"
             "WHEN UPDATING:\n"
             "  PUT /artifacts/{id} with partial content. "
             "The editor uses auto-save (1.5s debounce) so batch changes before saving."
@@ -1899,7 +1904,13 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "SHARING WORKFLOWS:\n"
             "  Workflows can be made public via is_public=True. This generates a public_magic_id\n"
             "  that allows anyone to view the workflow without authentication.\n"
-            "  Public workflows are read-only."
+            "  Public workflows are read-only.\n\n"
+            "SOCIAL SHARING & DISCOVERABILITY:\n"
+            "  The artifact `description` field is used for Open Graph cards, Twitter previews, search results, and feed cards.\n"
+            "  Set a featured image by putting an image asset UUID in `meta.cover_asset_id`. The image appears in social\n"
+            "  cards, the public feed, and search engine rich results. Both fields are optional but strongly\n"
+            "  recommended for any workflow intended to be shared publicly or featured in the feed.\n"
+            "  Update them via PUT /artifacts/{id} with { \"description\": \"...\", \"meta\": { \"cover_asset_id\": \"uuid\" } }."
         ),
         "content_schema": {
             "type": "object",
@@ -2380,7 +2391,13 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  2. Latitude/longitude outside valid ranges. Latitude must be -90 to 90, longitude -180 to 180.\n"
             "  3. Using zoom values outside 0-20. The map supports 0-20, but most tiles max at 18-19.\n"
             "  4. GeoJSON features must use [longitude, latitude] coordinate order (not lat,lng).\n"
-            "  5. Associations are loose references. The linked item may be deleted independently.\n"
+            "  5. Associations are loose references. The linked item may be deleted independently.\n\n"
+            "SOCIAL SHARING & DISCOVERABILITY:\n"
+            "  The artifact `description` field is used for Open Graph cards, Twitter previews, search results, and feed cards.\n"
+            "  Set a featured image by putting an image asset UUID in `meta.cover_asset_id`. The image appears in social\n"
+            "  cards, the public feed, and search engine rich results. Both fields are optional but strongly\n"
+            "  recommended for any map intended to be shared publicly or featured in the feed.\n"
+            "  Update them via PUT /artifacts/{id} with { \"description\": \"...\", \"meta\": { \"cover_asset_id\": \"uuid\" } }.\n"
         ),
         "content_schema": {
             "type": "object",
@@ -2594,7 +2611,13 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  1. Forgetting to include 'linked_asset_ids' — it should always match item.asset_ids.\n"
             "  2. Referencing a deleted asset. If an asset is deleted, its item becomes a broken link.\n"
             "  3. Using non-image assets. Only image assets (mime_type starts with 'image/') render correctly.\n"
-            "  4. Uploading images to the wrong folder. Gallery uploads go to the gallery's folder_id."
+            "  4. Uploading images to the wrong folder. Gallery uploads go to the gallery's folder_id.\n\n"
+            "SOCIAL SHARING & DISCOVERABILITY:\n"
+            "  The artifact `description` field is used for Open Graph cards, Twitter previews, search results, and feed cards.\n"
+            "  Set a featured image by putting an image asset UUID in `meta.cover_asset_id`. The image appears in social\n"
+            "  cards, the public feed, and search engine rich results. Both fields are optional but strongly\n"
+            "  recommended for any gallery intended to be shared publicly or featured in the feed.\n"
+            "  Update them via PUT /artifacts/{id} with { \"description\": \"...\", \"meta\": { \"cover_asset_id\": \"uuid\" } }."
         ),
         "content_schema": {
             "type": "object",
@@ -2711,8 +2734,10 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  Set via: PUT /artifacts/{id} with { \"meta\": { ... } }\n"
             "  Useful keys:\n"
             "    - tags: array of strings for sub-feed categorization (e.g., ['travel', 'portfolio'])\n"
-            "    - cover_asset_id: UUID of an image asset to use as a cover photo\n"
-            "    - excerpt: short summary text for feed cards\n\n"
+            "    - cover_asset_id: UUID of an image asset to use as a cover photo (OG image, feed thumbnail)\n"
+            "    - excerpt: short summary text for feed cards\n"
+            "  The top-level `description` field is also used for Open Graph cards, Twitter previews, and search results.\n"
+            "  Set both `description` and `meta.cover_asset_id` for the best social sharing experience.\n\n"
             "PUBLIC FEED:\n"
             "  A composition only appears in the public feed at /feed if it is:\n"
             "    1. Publicly accessible (is_public or in a public folder)\n"
@@ -2796,14 +2821,20 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  POST /ssh-keys. If git operations fail due to authentication, tell the human\n"
             "  to add their public key to Agent Espacio via Settings > SSH Keys.\n\n"
             "CONTENT SCHEMA:\n"
-            "  The content field stores build configuration for Phase 2:\n"
+            "  The content field stores build configuration for static site publishing:\n"
             '  { "build_command": "npm run build", "output_dir": "dist" }\n\n'
-            "  In Phase 1, these fields are optional and unused.\n\n"
+            "  These fields are used when deploying the repo as a static site.\n\n"
             "IMPORTANT:\n"
             "  - The repository is bare (no working tree). You push to it from your local machine.\n"
             "  - Files are browsable via the Espacio UI and API.\n"
-            "  - Build and serve capabilities will be added in Phase 2.\n"
-            "  - Anyone with a registered SSH key can push to any repo in Phase 1."
+            "  - Static site publishing is live: configure a slug, render mode, and build command, then deploy.\n"
+            "  - Anyone with a registered SSH key can push to any repo.\n\n"
+            "SOCIAL SHARING & DISCOVERABILITY:\n"
+            "  The artifact `description` field is used for Open Graph cards, Twitter previews, search results, and feed cards.\n"
+            "  Set a featured image by putting an image asset UUID in `meta.cover_asset_id`. The image appears in social\n"
+            "  cards, the public feed, and search engine rich results. Both fields are optional but strongly\n"
+            "  recommended for any repo intended to be shared publicly or featured in the feed.\n"
+            "  Update them via PUT /artifacts/{id} with { \"description\": \"...\", \"meta\": { \"cover_asset_id\": \"uuid\" } }."
         ),
         "content_schema": {
             "type": "object",

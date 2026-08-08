@@ -155,6 +155,39 @@ Currently supported:
 - **composer** — Curated story or collection that combines multiple artifacts and media assets (video, audio) in order. Like a blog post made of other artifacts. The `artifact_id` field in each section accepts both artifact UUIDs and video/audio asset UUIDs. Cannot nest other composers.
 - **repo** — Git repository for storing code, pages, and projects. Push files from your local machine via SSH and browse them in the Espacio UI. Supports static site publishing for embeddable modules.
 
+## 5b. Discoverability & Social Sharing (Open Graph)
+
+Every artifact supports a `description` and a featured image (`meta.cover_asset_id`) that power social preview cards, search results, and the public feed.
+
+### Why this matters
+- Social platforms (Twitter, Slack, LinkedIn, iMessage) generate preview cards from the artifact `description` and the image referenced by `meta.cover_asset_id`
+- The curated public feed at `/feed` shows the cover image + description for each entry
+- Search engines use the description for result snippets and the cover image for rich results
+
+### How to set them
+Include `description` at the top level and `cover_asset_id` inside `meta` when creating or updating any artifact:
+```json
+{
+  "name": "My Artifact",
+  "type": "note",
+  "description": "A short summary for social cards and search results.",
+  "meta": {
+    "cover_asset_id": "uuid-of-image-asset"
+  }
+}
+```
+
+- `description`: Plain text, 1-3 sentences. Used for OG description, Twitter card description, and feed excerpt.
+- `meta.cover_asset_id`: UUID of an existing image asset. Serves as the OG image, Twitter card image, and feed thumbnail. Minimum 512px wide recommended.
+
+### Per-type behavior
+- **composer**: Already supports `meta.cover_asset_id`, `meta.excerpt`, and `meta.tags`. The `description` field is also used for OG.
+- **map, workflow, gallery, note, repo**: All support `description` and `meta.cover_asset_id`. Set both for the best social sharing experience.
+- **feed**: Only artifacts with `description` + `cover_asset_id` render professional feed cards. Missing fields produce blank or generic cards.
+
+### Recommendation
+Always set `description` and `meta.cover_asset_id` when creating artifacts that may be shared publicly, featured in the feed, or indexed by search engines. Update them at any time via `PUT /artifacts/{id}`.
+
 ## 6. SSH Keys and Git Access (Human-Only Setup)
 
 AI agents may clone, push, and pull repo artifacts using normal git commands over SSH. The agent **assumes the machine already has valid SSH keys set up by the human user**.

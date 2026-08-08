@@ -63,6 +63,14 @@ def update_artifact(
     if meta is not None:
         artifact.meta = meta
 
+    # Trigger gallery mosaic regeneration when gallery items change
+    if artifact.type == "gallery" and content is not None:
+        try:
+            from celery_app.tasks import generate_gallery_mosaic_task
+            generate_gallery_mosaic_task.delay(str(artifact.id))
+        except Exception:
+            pass
+
     # Validate composer content (no nested composers)
     if artifact.type == "composer":
         from .validate import validate_no_nested_composers

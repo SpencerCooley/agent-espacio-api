@@ -16,7 +16,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from dependencies.dependencies import get_db
@@ -31,6 +31,8 @@ from services.file_storage import (
     get_asset_path,
     get_thumbnail_path,
     thumbnail_exists,
+    gallery_mosaic_exists,
+    get_gallery_mosaic_path,
     read_file_from_path,
     read_file_range_from_path,
     THUMBNAIL_SIZES,
@@ -182,6 +184,19 @@ async def public_view(
         }
 
     elif kind == 'asset':
+        # Build an absolute download URL so the response is self-describing
+        # for agents that discover this page via curl or search indexing.
+        base = str(request.base_url).rstrip("/")
+        download_url = f"{base}/public/assets/{item.public_magic_id}/download"
+
+        thumbnail_url = None
+        if item.is_image or item.mime_type.startswith("video/") or item.mime_type == "model/gltf-binary":
+            thumbnail_url = f"{download_url}?size=512"
+
+        preview = None
+        if item.mime_type in ("text/markdown", "text/x-markdown"):
+            preview = (item.file_meta or {}).get("preview")
+
         return {
             "kind": "asset",
             "asset": {
@@ -195,6 +210,9 @@ async def public_view(
                 "public_magic_id": item.public_magic_id,
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
+                "download_url": download_url,
+                "thumbnail_url": thumbnail_url,
+                "preview": preview,
             },
             "public_theme": public_theme_response,
         }
@@ -225,6 +243,21 @@ async def public_view(
                 cover_url = generate_signed_url(cover_asset_id, size=512, expiry_seconds=3600)
             except Exception:
                 pass
+
+        # Gallery mosaic fallback: no explicit cover, but a generated mosaic exists.
+        if not cover_url and item.type == "gallery" and gallery_mosaic_exists(item.id):
+            cover_url = f"/public/artifacts/{item.public_magic_id}/cover"
+
+        # Gallery first-image fallback: bridge the gap before Celery finishes.
+        if not cover_url and item.type == "gallery":
+            items = (item.content or {}).get("items", []) if isinstance(item.content, dict) else []
+            if items:
+                first_asset_id = items[0].get("asset_id")
+                if first_asset_id:
+                    try:
+                        cover_url = generate_signed_url(first_asset_id, size=512, expiry_seconds=3600)
+                    except Exception:
+                        pass
         return {
             "kind": "artifact",
             "artifact": {
@@ -247,6 +280,29 @@ async def public_view(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Unknown item type"
     )
+
+
+@router.get("/artifacts/{magic_id}/cover")
+async def public_artifact_cover(
+    magic_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """
+    Serve a gallery mosaic cover image (1200×630 webp) for a public artifact.
+    """
+    from models.artifact import Artifact
+    artifact = db.query(Artifact).filter(Artifact.public_magic_id == magic_id).first()
+    if not artifact:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found")
+
+    if not controllers.public.is_artifact_public(db, artifact):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not publicly accessible")
+
+    mosaic_path = get_gallery_mosaic_path(artifact.id)
+    if not os.path.exists(mosaic_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not generated yet")
+
+    return FileResponse(mosaic_path, media_type="image/webp")
 
 
 @router.get("/assets/{magic_id}/download")

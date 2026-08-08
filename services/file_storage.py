@@ -15,6 +15,7 @@ from uuid import UUID
 # Configuration
 STORAGE_PATH = os.environ.get("STORAGE_PATH", "/app/storage")
 ASSETS_DIR = os.path.join(STORAGE_PATH, "assets")
+GALLERY_COVERS_DIR = os.path.join(STORAGE_PATH, "derived", "gallery_covers")
 TEMP_DIR = os.path.join(STORAGE_PATH, "temp")
 MAX_FILE_SIZE = 1000 * 1024 * 1024  # 1000MB
 
@@ -672,6 +673,98 @@ def get_thumbnail_path(asset_id: UUID, size: int) -> str:
 def thumbnail_exists(asset_id: UUID, size: int) -> bool:
     """Check if a thumbnail file exists on disk."""
     return os.path.exists(get_thumbnail_path(asset_id, size))
+
+
+def generate_gallery_mosaic(artifact_id: UUID, image_paths: list[str]) -> Optional[str]:
+    """
+    Compose a 1200×630 webp mosaic from up to 4 gallery images.
+
+    Layouts:
+      - 2 images: side-by-side 50/50
+      - 3 images: 1 large left (~58%) + 2 stacked right
+      - 4+ images: 2×2 grid from first 4
+
+    Args:
+        artifact_id: Gallery artifact UUID (used for the output filename)
+        image_paths: Absolute paths to source image files (already resolved)
+
+    Returns:
+        Absolute path to the generated webp file, or None if skipped
+        (e.g., 0 images, 1 image, or any read error).
+    """
+    try:
+        from PIL import Image, ImageOps
+    except ImportError:
+        return None
+
+    OUTPUT_W, OUTPUT_H = 1200, 630
+    GUTTER = 12
+    BG = (17, 17, 17)
+
+    count = len(image_paths)
+    if count == 0 or count == 1:
+        return None
+
+    os.makedirs(GALLERY_COVERS_DIR, exist_ok=True)
+    out_path = os.path.join(GALLERY_COVERS_DIR, f"{artifact_id}.webp")
+    tmp_path = out_path + ".tmp"
+
+    def fit(img: Image.Image, w: int, h: int) -> Image.Image:
+        return ImageOps.fit(img.convert("RGB"), (w, h), method=Image.LANCZOS, centering=(0.5, 0.5))
+
+    try:
+        canvas = Image.new("RGB", (OUTPUT_W, OUTPUT_H), BG)
+
+        if count == 2:
+            cell_w = (OUTPUT_W - GUTTER) // 2
+            cell_h = OUTPUT_H
+            for i, path in enumerate(image_paths[:2]):
+                with Image.open(path) as img:
+                    img = fit(img, cell_w, cell_h)
+                    x = i * (cell_w + GUTTER)
+                    canvas.paste(img, (x, 0))
+
+        elif count == 3:
+            left_w = int(OUTPUT_W * 0.58)
+            right_w = OUTPUT_W - left_w - GUTTER
+            top_h = (OUTPUT_H - GUTTER) // 2
+
+            with Image.open(image_paths[0]) as img:
+                img = fit(img, left_w, OUTPUT_H)
+                canvas.paste(img, (0, 0))
+
+            for i, path in enumerate(image_paths[1:3]):
+                with Image.open(path) as img:
+                    img = fit(img, right_w, top_h)
+                    y = i * (top_h + GUTTER)
+                    canvas.paste(img, (left_w + GUTTER, y))
+
+        else:  # 4+
+            cell_w = (OUTPUT_W - GUTTER) // 2
+            cell_h = (OUTPUT_H - GUTTER) // 2
+            for i, path in enumerate(image_paths[:4]):
+                with Image.open(path) as img:
+                    img = fit(img, cell_w, cell_h)
+                    x = (i % 2) * (cell_w + GUTTER)
+                    y = (i // 2) * (cell_h + GUTTER)
+                    canvas.paste(img, (x, y))
+
+        canvas.save(tmp_path, "WEBP", quality=85, method=6)
+        os.replace(tmp_path, out_path)
+        return out_path
+
+    except Exception:
+        return None
+
+
+def get_gallery_mosaic_path(artifact_id: UUID) -> str:
+    """Return the filesystem path for a gallery mosaic cover file."""
+    return os.path.join(GALLERY_COVERS_DIR, f"{artifact_id}.webp")
+
+
+def gallery_mosaic_exists(artifact_id: UUID) -> bool:
+    """Check whether a gallery mosaic cover file exists on disk."""
+    return os.path.exists(get_gallery_mosaic_path(artifact_id))
 
 
 # Range request support for streaming video/audio

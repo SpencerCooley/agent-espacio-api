@@ -20,6 +20,7 @@ from controllers.public import is_artifact_public
 from controllers.settings import get_public_theme
 from controllers.themes import get_public_theme_definition
 from controllers.asset.signed_url import generate_signed_url
+from services.file_storage import gallery_mosaic_exists, get_gallery_mosaic_path
 
 
 def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None, featured_level: Optional[int] = None) -> Dict[str, Any]:
@@ -32,6 +33,22 @@ def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None,
             cover_url = generate_signed_url(cover_asset_id, size=512, expiry_seconds=3600)
         except Exception:
             pass
+
+    # Gallery mosaic fallback
+    if not cover_url and artifact.type == "gallery" and gallery_mosaic_exists(artifact.id):
+        cover_url = f"/public/artifacts/{artifact.public_magic_id}/cover"
+
+    # Gallery first-image fallback
+    if not cover_url and artifact.type == "gallery":
+        content = artifact.content or {}
+        items = content.get("items", []) if isinstance(content, dict) else []
+        if items:
+            first_aid = items[0].get("asset_id")
+            if first_aid:
+                try:
+                    cover_url = generate_signed_url(first_aid, size=512, expiry_seconds=3600)
+                except Exception:
+                    pass
 
     return {
         "id": str(artifact.id),

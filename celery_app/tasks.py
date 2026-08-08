@@ -253,6 +253,82 @@ def deploy_repo_task(self, artifact_id_str: str, ref: str = ""):
 
 
 @celery_app.task(bind=True, max_retries=1, default_retry_delay=10)
+def generate_gallery_mosaic_task(self, artifact_id_str: str):
+    """
+    Generate a 1200×630 mosaic cover image for a gallery artifact.
+
+    Reads the gallery's current content.items, resolves each asset_id to the
+    actual file on disk, and composes a webp mosaic. The result is stored as a
+    derivative file keyed by artifact_id — not a real Asset row.
+
+    Edge cases:
+      - 0 or 1 image: deletes any stale mosaic file and returns early
+      - Missing/deleted assets: skipped, layout recomputed with remainder
+      - If remainder drops to 0 or 1: deletes stale mosaic file
+    """
+    from services.file_storage import (
+        generate_gallery_mosaic,
+        get_gallery_mosaic_path,
+        get_asset_path,
+    )
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from models.artifact import Artifact
+    from models.asset import Asset
+
+    db_url = os.environ.get("DATABASE_URL", "postgresql://agentespacio:agentespacio@db:5432/agentespacio_db")
+    engine = create_engine(db_url)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    try:
+        artifact = db.query(Artifact).filter(Artifact.id == UUID(artifact_id_str)).first()
+        if not artifact:
+            return {"status": "error", "detail": "Artifact not found"}
+
+        content = artifact.content or {}
+        items = content.get("items", []) if isinstance(content, dict) else []
+        asset_ids = [item.get("asset_id") for item in items if item.get("asset_id")]
+
+        # Resolve file paths (skip missing/deleted assets)
+        image_paths: list[str] = []
+        for aid in asset_ids:
+            try:
+                asset = db.query(Asset).filter(Asset.id == UUID(aid)).first()
+                if asset and asset.is_image:
+                    image_paths.append(get_asset_path(asset.storage_filename))
+            except Exception:
+                continue
+
+        mosaic_path = get_gallery_mosaic_path(artifact.id)
+
+        if len(image_paths) <= 1:
+            # Delete stale mosaic if it exists
+            if os.path.exists(mosaic_path):
+                try:
+                    os.remove(mosaic_path)
+                except OSError:
+                    pass
+            return {"status": "skipped", "reason": "too_few_images", "count": len(image_paths)}
+
+        result = generate_gallery_mosaic(artifact.id, image_paths)
+        if result:
+            return {"status": "success", "path": result}
+        else:
+            return {"status": "error", "detail": "Mosaic generation failed"}
+
+    except Exception as e:
+        try:
+            self.retry(exc=e)
+        except Exception:
+            return {"status": "error", "detail": str(e)}
+
+    finally:
+        db.close()
+        engine.dispose()
+
+
+@celery_app.task(bind=True, max_retries=1, default_retry_delay=10)
 def generate_thumbnails_task(self, asset_id_str: str, source_path: str, mime_type: str):
     """
     Generate thumbnails for an asset in a background Celery worker.
