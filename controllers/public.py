@@ -437,3 +437,60 @@ def search_public_folder_scope(
     artifact_results = [ar for ar in artifact_results if is_artifact_public(db, ar)]
 
     return folder_results, asset_results, artifact_results
+
+
+def list_public_sitemap(db: Session) -> list:
+    """
+    List all publicly accessible items that have their own public_magic_id.
+
+    These are the canonical shareable URLs used for the client's sitemap.xml
+    and llms.txt. Items that are public only through inheritance (a public
+    ancestor folder) are reachable via their parent's public URL and are not
+    listed separately.
+
+    Args:
+        db: Database session
+
+    Returns:
+        List of dicts: {kind, id, type, public_magic_id, updated_at}
+    """
+    folders = db.query(Folder).filter(Folder.public_magic_id.isnot(None)).all()
+    assets = db.query(Asset).filter(Asset.public_magic_id.isnot(None)).all()
+    artifacts = db.query(Artifact).filter(Artifact.public_magic_id.isnot(None)).all()
+
+    items = []
+
+    for f in folders:
+        if is_folder_public(db, f):
+            items.append({
+                "kind": "folder",
+                "id": str(f.id),
+                "name": f.name,
+                "type": None,
+                "public_magic_id": str(f.public_magic_id),
+                "updated_at": f.updated_at.isoformat() if f.updated_at else None,
+            })
+
+    for a in assets:
+        if is_asset_public(db, a):
+            items.append({
+                "kind": "asset",
+                "id": str(a.id),
+                "name": a.name,
+                "type": None,
+                "public_magic_id": str(a.public_magic_id),
+                "updated_at": a.updated_at.isoformat() if a.updated_at else None,
+            })
+
+    for ar in artifacts:
+        if is_artifact_public(db, ar):
+            items.append({
+                "kind": "artifact",
+                "id": str(ar.id),
+                "name": ar.name,
+                "type": ar.type,
+                "public_magic_id": str(ar.public_magic_id),
+                "updated_at": ar.updated_at.isoformat() if ar.updated_at else None,
+            })
+
+    return items

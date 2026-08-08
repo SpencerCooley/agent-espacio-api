@@ -301,6 +301,21 @@ async def public_download_asset(
     )
 
 
+@router.get("/sitemap")
+async def public_sitemap(db: Session = Depends(get_db)):
+    """
+    List all publicly shareable items (those with their own public magic ID).
+
+    Used by the client to build sitemap.xml and llms.txt. Items public only
+    through inheritance are reachable via their parent's public URL.
+
+    Returns:
+        {"items": [{kind, id, type, public_magic_id, updated_at}], "total": int}
+    """
+    items = controllers.public.list_public_sitemap(db)
+    return {"items": items, "total": len(items)}
+
+
 @router.get("/search/{magic_id}")
 async def public_folder_search(
     magic_id: UUID,

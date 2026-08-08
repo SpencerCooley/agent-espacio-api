@@ -13,26 +13,33 @@ from models.artifact import Artifact
 from models.asset import Asset
 
 
-def _serialize_item(item) -> Optional[Dict[str, Any]]:
-    """Serialize an Artifact or Asset object into a plain dict."""
+def _serialize_item(item, include_internal: bool = True) -> Optional[Dict[str, Any]]:
+    """
+    Serialize an Artifact or Asset object into a plain dict.
+
+    When include_internal is False (public-facing responses), internal
+    bookkeeping fields (folder_id, created_by_id) are omitted.
+    """
     if not item:
         return None
     if isinstance(item, Artifact):
-        return {
+        d = {
             "id": str(item.id),
             "name": item.name,
             "type": item.type,
             "description": item.description,
             "content": item.content,
-            "folder_id": str(item.folder_id),
             "is_public": item.is_public,
             "public_magic_id": str(item.public_magic_id) if item.public_magic_id else None,
             "created_at": item.created_at.isoformat() if item.created_at else None,
             "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-            "created_by_id": item.created_by_id,
         }
+        if include_internal:
+            d["folder_id"] = str(item.folder_id)
+            d["created_by_id"] = item.created_by_id
+        return d
     if isinstance(item, Asset):
-        return {
+        d = {
             "id": str(item.id),
             "name": item.name,
             "mime_type": item.mime_type,
@@ -44,11 +51,20 @@ def _serialize_item(item) -> Optional[Dict[str, Any]]:
             "created_at": item.created_at.isoformat() if item.created_at else None,
             "updated_at": item.updated_at.isoformat() if item.updated_at else None,
         }
+        if include_internal:
+            d["folder_id"] = str(item.folder_id) if item.folder_id else None
+            d["created_by_id"] = item.created_by_id
+        return d
     return None
 
 
-def _serialize_composer(composer: Artifact) -> Dict[str, Any]:
-    """Serialize a composer artifact into a plain dict."""
+def _serialize_composer(composer: Artifact, include_internal: bool = True) -> Dict[str, Any]:
+    """
+    Serialize a composer artifact into a plain dict.
+
+    When include_internal is False (public-facing responses), internal
+    bookkeeping fields (folder_id, created_by_id) are omitted.
+    """
     from controllers.asset.signed_url import generate_signed_url
     meta = composer.meta or {}
     cover_asset_id = meta.get("cover_asset_id")
@@ -59,7 +75,7 @@ def _serialize_composer(composer: Artifact) -> Dict[str, Any]:
         except Exception:
             pass
 
-    return {
+    d = {
         "id": str(composer.id),
         "name": composer.name,
         "type": composer.type,
@@ -67,13 +83,15 @@ def _serialize_composer(composer: Artifact) -> Dict[str, Any]:
         "content": composer.content,
         "meta": meta,
         "cover_url": cover_url,
-        "folder_id": str(composer.folder_id),
         "is_public": composer.is_public,
         "public_magic_id": str(composer.public_magic_id) if composer.public_magic_id else None,
         "created_at": composer.created_at.isoformat() if composer.created_at else None,
         "updated_at": composer.updated_at.isoformat() if composer.updated_at else None,
-        "created_by_id": composer.created_by_id,
     }
+    if include_internal:
+        d["folder_id"] = str(composer.folder_id)
+        d["created_by_id"] = composer.created_by_id
+    return d
 
 
 def resolve_composition(db: Session, composer: Artifact) -> Dict[str, Any]:
@@ -166,7 +184,7 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
 
     if not sections_data:
         return {
-            "composer": _serialize_composer(composer),
+            "composer": _serialize_composer(composer, include_internal=False),
             "sections": [],
         }
 
@@ -198,7 +216,7 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
 
     # Build resolved sections, filtering by public access
     from controllers.asset.signed_url import enrich_content_with_signed_urls
-    
+
     resolved_sections = []
     for section in sections_data:
         if not isinstance(section, dict):
@@ -218,12 +236,12 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
         if is_public and item and isinstance(item, Artifact):
             # Enrich artifact content with signed URLs for embedded assets
             import copy
-            item_dict = _serialize_item(item)
+            item_dict = _serialize_item(item, include_internal=False)
             item_dict["content"] = enrich_content_with_signed_urls(
                 copy.deepcopy(item.content or {}), expiry_seconds=3600
             )
         else:
-            item_dict = _serialize_item(item) if is_public else None
+            item_dict = _serialize_item(item, include_internal=False) if is_public else None
 
         resolved_sections.append({
             "item": item_dict,
@@ -232,6 +250,6 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
         })
 
     return {
-        "composer": _serialize_composer(composer),
+        "composer": _serialize_composer(composer, include_internal=False),
         "sections": resolved_sections,
     }
