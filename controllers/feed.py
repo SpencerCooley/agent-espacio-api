@@ -36,7 +36,7 @@ def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None,
 
     # Gallery mosaic fallback
     if not cover_url and artifact.type == "gallery" and gallery_mosaic_exists(artifact.id):
-        cover_url = f"/public/artifacts/{artifact.public_magic_id}/cover"
+        cover_url = f"/public/artifacts/{artifact.id}/cover"
 
     # Gallery first-image fallback
     if not cover_url and artifact.type == "gallery":

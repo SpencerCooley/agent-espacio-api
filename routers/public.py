@@ -246,7 +246,7 @@ async def public_view(
 
         # Gallery mosaic fallback: no explicit cover, but a generated mosaic exists.
         if not cover_url and item.type == "gallery" and gallery_mosaic_exists(item.id):
-            cover_url = f"/public/artifacts/{item.public_magic_id}/cover"
+            cover_url = f"/public/artifacts/{item.id}/cover"
 
         # Gallery first-image fallback: bridge the gap before Celery finishes.
         if not cover_url and item.type == "gallery":
@@ -282,16 +282,16 @@ async def public_view(
     )
 
 
-@router.get("/artifacts/{magic_id}/cover")
+@router.get("/artifacts/{artifact_id}/cover")
 async def public_artifact_cover(
-    magic_id: UUID,
+    artifact_id: UUID,
     db: Session = Depends(get_db),
 ):
     """
     Serve a gallery mosaic cover image (1200×630 webp) for a public artifact.
     """
     from models.artifact import Artifact
-    artifact = db.query(Artifact).filter(Artifact.public_magic_id == magic_id).first()
+    artifact = db.query(Artifact).filter(Artifact.id == artifact_id).first()
     if not artifact:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not found")
 
