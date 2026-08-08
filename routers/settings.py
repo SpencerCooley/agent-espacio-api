@@ -10,9 +10,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from dependencies.dependencies import get_db, require_auth
-from controllers.settings import get_all_settings, get_public_theme, set_public_theme, get_branding, set_branding
-from controllers.asset.signed_url import generate_signed_url
-from uuid import UUID
+from controllers.settings import get_all_settings, get_public_theme, set_public_theme, get_branding, set_branding, get_public_branding
 
 router = APIRouter(
     prefix="/settings",
@@ -96,23 +94,7 @@ async def get_branding_endpoint(
 
     No authentication required.
     """
-    branding = get_branding(db)
-
-    # Generate signed URLs for branding assets so public pages can display them
-    # without requiring authentication
-    def _signed_url(asset_id: str | None, size: int = None) -> str | None:
-        if not asset_id:
-            return None
-        try:
-            return generate_signed_url(UUID(asset_id), size=size, expiry_seconds=3600)
-        except Exception:
-            return None
-
-    branding['logo_light_url'] = _signed_url(branding.get('logo_light_asset_id'), size=256)
-    branding['logo_dark_url'] = _signed_url(branding.get('logo_dark_asset_id'), size=256)
-    branding['background_url'] = _signed_url(branding.get('background_asset_id'), size=512)
-
-    return branding
+    return get_public_branding(db)
 
 
 @router.put("/branding")

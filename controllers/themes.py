@@ -38,24 +38,29 @@ def get_theme_by_id(db: Session, theme_id: str) -> Optional[Theme]:
         return None
 
 
-def get_public_theme_definition(db: Session, theme_id: str, mode: str) -> Optional[Dict[str, Any]]:
+def get_public_theme_definition(db: Session, theme_id: str) -> Optional[Dict[str, Any]]:
     """
-    Get the resolved theme definition for a given mode.
+    Get the full public theme definition.
+
+    Returns both variants so the client can resolve light/dark itself and so
+    server-rendered public pages can seed the theme without a follow-up fetch.
 
     Args:
         db: Database session
         theme_id: Theme UUID
-        mode: 'light' or 'dark'
 
     Returns:
-        The theme definition dict or None if theme not found.
+        {"id", "name", "light_definition", "dark_definition"} or None.
     """
     theme = get_theme_by_id(db, theme_id)
     if not theme:
         return None
-    if mode == 'light':
-        return theme.light_definition
-    return theme.dark_definition
+    return {
+        "id": str(theme.id),
+        "name": theme.name,
+        "light_definition": theme.light_definition,
+        "dark_definition": theme.dark_definition,
+    }
 
 
 def create_theme(

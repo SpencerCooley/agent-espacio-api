@@ -139,6 +139,33 @@ def get_branding(db: Session) -> Dict[str, Any]:
     }
 
 
+def get_public_branding(db: Session) -> Dict[str, Any]:
+    """
+    Get the branding settings enriched with signed URLs for public access.
+
+    Signed URLs let unauthenticated visitors load logo/background assets
+    without credentials (1-hour expiry).
+    """
+    from uuid import UUID
+    from controllers.asset.signed_url import generate_signed_url
+
+    branding = get_branding(db)
+
+    def _signed_url(asset_id: str | None, size: int = None) -> str | None:
+        if not asset_id:
+            return None
+        try:
+            return generate_signed_url(UUID(asset_id), size=size, expiry_seconds=3600)
+        except Exception:
+            return None
+
+    branding['logo_light_url'] = _signed_url(branding.get('logo_light_asset_id'), size=256)
+    branding['logo_dark_url'] = _signed_url(branding.get('logo_dark_asset_id'), size=256)
+    branding['background_url'] = _signed_url(branding.get('background_asset_id'), size=512)
+
+    return branding
+
+
 def set_branding(db: Session,
                  logo_light_asset_id: Optional[str] = None,
                  logo_dark_asset_id: Optional[str] = None,

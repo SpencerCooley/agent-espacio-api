@@ -147,7 +147,7 @@ def list_feed_items(
     # Resolve public theme
     public_theme_pref = get_public_theme(db)
     public_theme_definition = get_public_theme_definition(
-        db, public_theme_pref['theme_id'], public_theme_pref['mode']
+        db, public_theme_pref['theme_id']
     ) if public_theme_pref['theme_id'] else None
     public_theme_response = {
         "theme_id": public_theme_pref['theme_id'],

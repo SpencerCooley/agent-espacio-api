@@ -36,7 +36,7 @@ from services.file_storage import (
     THUMBNAIL_SIZES,
 )
 from utils.range_request import create_streaming_response_with_range
-from controllers.settings import get_public_theme
+from controllers.settings import get_public_theme, get_public_branding
 from controllers.themes import get_public_theme_definition
 
 router = APIRouter(
@@ -44,6 +44,32 @@ router = APIRouter(
     tags=["Public"],
     responses={404: {"description": "Not found"}}
 )
+
+
+@router.get("/appearance")
+async def public_appearance(db: Session = Depends(get_db)):
+    """
+    Public appearance payload: the configured public theme (full definition
+    with both light/dark variants) and branding (with signed URLs) in one call.
+
+    Used by server-rendered public pages to seed theme/branding into the page,
+    so visitors never see a flash of the default theme.
+
+    No authentication required.
+    """
+    theme_pref = get_public_theme(db)
+    definition = get_public_theme_definition(
+        db, theme_pref['theme_id']
+    ) if theme_pref['theme_id'] else None
+
+    return {
+        "theme": {
+            "theme_id": theme_pref['theme_id'],
+            "mode": theme_pref['mode'],
+            "definition": definition,
+        },
+        "branding": get_public_branding(db),
+    }
 
 
 @router.get("/view/{magic_id}")
@@ -72,7 +98,7 @@ async def public_view(
     # Resolve public theme with full definition
     public_theme_pref = get_public_theme(db)
     public_theme_definition = get_public_theme_definition(
-        db, public_theme_pref['theme_id'], public_theme_pref['mode']
+        db, public_theme_pref['theme_id']
     ) if public_theme_pref['theme_id'] else None
     public_theme_response = {
         "theme_id": public_theme_pref['theme_id'],
@@ -175,7 +201,7 @@ async def public_view(
 
     elif kind == 'artifact':
         import copy
-        from controllers.asset.signed_url import enrich_content_with_signed_urls
+        from controllers.asset.signed_url import enrich_content_with_signed_urls, generate_signed_url
         enriched_content = enrich_content_with_signed_urls(
             copy.deepcopy(item.content or {}), expiry_seconds=3600
         )
@@ -190,6 +216,15 @@ async def public_view(
                     "slug": pub.get("slug", ""),
                     "allow_public_code_view": pub.get("allow_public_code_view", False),
                 }
+        # Resolve featured image (meta.cover_asset_id) for OG cards / JSON-LD.
+        # Same field the composer and feed use — works for any artifact type.
+        cover_url = None
+        cover_asset_id = (item.meta or {}).get("cover_asset_id")
+        if cover_asset_id:
+            try:
+                cover_url = generate_signed_url(cover_asset_id, size=512, expiry_seconds=3600)
+            except Exception:
+                pass
         return {
             "kind": "artifact",
             "artifact": {
@@ -203,6 +238,7 @@ async def public_view(
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
                 "publish": publish_config,
+                "cover_url": cover_url,
             },
             "public_theme": public_theme_response,
         }
@@ -457,7 +493,7 @@ async def public_composition(
     # Resolve public theme
     public_theme_pref = get_public_theme(db)
     public_theme_definition = get_public_theme_definition(
-        db, public_theme_pref['theme_id'], public_theme_pref['mode']
+        db, public_theme_pref['theme_id']
     ) if public_theme_pref['theme_id'] else None
     public_theme_response = {
         "theme_id": public_theme_pref['theme_id'],
