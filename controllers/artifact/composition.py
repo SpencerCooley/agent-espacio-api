@@ -11,6 +11,79 @@ from sqlalchemy.orm import Session
 
 from models.artifact import Artifact
 from models.asset import Asset
+from models.profile import Profile
+
+
+def _resolve_author(db: Session, author_id: Optional[str]) -> Optional[Dict[str, Any]]:
+    """
+    Resolve an author_id to a public profile.
+    
+    Args:
+        db: Database session
+        author_id: User ID string
+        
+    Returns:
+        Dict with user_id, display_name, avatar_url or None if not found
+    """
+    if not author_id:
+        return None
+    
+    try:
+        user_id = int(author_id)
+    except (ValueError, TypeError):
+        return None
+    
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    if not profile:
+        return None
+    
+    # Use derivative avatar URLs
+    avatar_url = None
+    if profile.avatar_user_id:
+        from controllers.profile.avatar import get_avatar_url
+        avatar_url = get_avatar_url(profile.avatar_user_id, size=128)
+    
+    return {
+        "user_id": profile.user_id,
+        "display_name": profile.display_name,
+        "avatar_url": avatar_url,
+    }
+
+
+def _resolve_public_author(db: Session, author_id: Optional[str]) -> Optional[Dict[str, Any]]:
+    """
+    Resolve an author_id to a public profile for public-facing responses.
+    
+    Args:
+        db: Database session
+        author_id: User ID string
+        
+    Returns:
+        Dict with user_id, display_name, avatar_url or None if not found
+    """
+    if not author_id:
+        return None
+    
+    try:
+        user_id = int(author_id)
+    except (ValueError, TypeError):
+        return None
+    
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    if not profile:
+        return None
+    
+    # Use derivative avatar URLs (same for public view)
+    avatar_url = None
+    if profile.avatar_user_id:
+        from controllers.profile.avatar import get_avatar_url
+        avatar_url = get_avatar_url(profile.avatar_user_id, size=128)
+    
+    return {
+        "user_id": profile.user_id,
+        "display_name": profile.display_name,
+        "avatar_url": avatar_url,
+    }
 
 
 def _serialize_item(item, include_internal: bool = True) -> Optional[Dict[str, Any]]:
@@ -58,7 +131,7 @@ def _serialize_item(item, include_internal: bool = True) -> Optional[Dict[str, A
     return None
 
 
-def _serialize_composer(composer: Artifact, include_internal: bool = True, public_urls: bool = False) -> Dict[str, Any]:
+def _serialize_composer(composer: Artifact, include_internal: bool = True, public_urls: bool = False, author: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Serialize a composer artifact into a plain dict.
 
@@ -70,6 +143,7 @@ def _serialize_composer(composer: Artifact, include_internal: bool = True, publi
     authenticated workspace views.
     """
     meta = composer.meta or {}
+    content = composer.content or {}
     cover_asset_id = meta.get("cover_asset_id")
     cover_url = None
     if cover_asset_id:
@@ -83,6 +157,11 @@ def _serialize_composer(composer: Artifact, include_internal: bool = True, publi
         except Exception:
             pass
 
+    # Determine published_at (override or fallback to created_at)
+    published_at = content.get("published_at")
+    if not published_at:
+        published_at = composer.created_at.isoformat() if composer.created_at else None
+
     d = {
         "id": str(composer.id),
         "name": composer.name,
@@ -95,6 +174,8 @@ def _serialize_composer(composer: Artifact, include_internal: bool = True, publi
         "public_magic_id": str(composer.public_magic_id) if composer.public_magic_id else None,
         "created_at": composer.created_at.isoformat() if composer.created_at else None,
         "updated_at": composer.updated_at.isoformat() if composer.updated_at else None,
+        "published_at": published_at,
+        "author": author,
     }
     if include_internal:
         d["folder_id"] = str(composer.folder_id)
@@ -118,6 +199,10 @@ def resolve_composition(db: Session, composer: Artifact) -> Dict[str, Any]:
     """
     content = composer.content or {}
     sections_data = content.get("sections", [])
+
+    # Resolve author
+    author_id = content.get("author_id")
+    author = _resolve_author(db, author_id)
 
     if not sections_data:
         return {
@@ -167,7 +252,7 @@ def resolve_composition(db: Session, composer: Artifact) -> Dict[str, Any]:
         })
 
     return {
-        "composer": _serialize_composer(composer),
+        "composer": _serialize_composer(composer, author=author),
         "sections": resolved_sections,
     }
 
@@ -189,6 +274,10 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
 
     content = composer.content or {}
     sections_data = content.get("sections", [])
+
+    # Resolve author for public view
+    author_id = content.get("author_id")
+    author = _resolve_public_author(db, author_id)
 
     if not sections_data:
         return {
@@ -258,6 +347,6 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
         })
 
     return {
-        "composer": _serialize_composer(composer, include_internal=False, public_urls=True),
+        "composer": _serialize_composer(composer, include_internal=False, public_urls=True, author=author),
         "sections": resolved_sections,
     }

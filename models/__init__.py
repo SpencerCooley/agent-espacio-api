@@ -24,6 +24,7 @@ from models.theme import Theme
 from models.settings import Setting
 from models.feed_item import FeedItem
 from models.repo_ssh_key import RepoSshKey
+from models.profile import Profile
 
 __all__ = [
     "Base",
@@ -39,4 +40,5 @@ __all__ = [
     "Setting",
     "FeedItem",
     "RepoSshKey",
+    "Profile",
 ]

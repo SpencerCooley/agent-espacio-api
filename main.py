@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import ai_instructions, health, auth, users, api_keys, ssh_keys, folders, assets, artifacts, public, settings, themes, ws, feed, repos, git_http
+from routers import ai_instructions, health, auth, users, api_keys, ssh_keys, folders, assets, artifacts, public, settings, themes, ws, feed, repos, git_http, profiles
 from routers.repos import _internal_router
 from services import events
 import routers.ws as ws_router
@@ -39,6 +39,7 @@ app.include_router(ai_instructions.router)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(profiles.router)
 app.include_router(ssh_keys.router)
 app.include_router(api_keys.router)
 app.include_router(folders.router)

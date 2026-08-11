@@ -2703,6 +2703,10 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             '    { "artifact_id": "uuid", "caption": "optional text" }\n'
             '  ]\n'
             "}\n\n"
+            "AUTHORSHIP:\n"
+            "  Compositions support an assigned author (newspaper-bylaw model). Set author_id in content\n"
+            "  to the user ID of the displayed author. The author must have a profile with display_name.\n"
+            "  published_at overrides the creation date for display purposes (ISO 8601 format).\n\n"
             "SECTIONS:\n"
             "  Each section references an existing artifact or media asset by UUID.\n"
             "  The `artifact_id` field accepts both artifact UUIDs and video/audio asset UUIDs.\n"
@@ -2748,6 +2752,18 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "type": "object",
             "required": ["sections"],
             "properties": {
+                "author_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": True,
+                    "description": "User ID of the displayed author (newspaper-bylaw model). Must have a public profile."
+                },
+                "published_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": True,
+                    "description": "Override publish date (ISO 8601). Defaults to artifact created_at."
+                },
                 "sections": {
                     "type": "array",
                     "description": "Ordered array of artifact references",
@@ -2771,6 +2787,8 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
         },
         "example_content": {
             "content": {
+                "author_id": "123e4567-e89b-12d3-a456-426614174000",
+                "published_at": "2026-08-15T10:30:00Z",
                 "sections": [
                     {
                         "artifact_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",

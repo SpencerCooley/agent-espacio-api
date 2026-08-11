@@ -15,7 +15,7 @@ import subprocess
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status, Query
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -919,3 +919,107 @@ async def public_repo_commit_detail(magic_id: UUID, commit_hash: str, db: Sessio
         "total_additions": total_additions,
         "total_deletions": total_deletions,
     }
+
+
+# ---- Public profiles & authors ----
+
+@router.get("/profiles/{user_id}")
+async def public_profile(
+    user_id: int,
+    limit: int = Query(6, ge=1, le=50, description="Number of compositions to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get a public profile with the user's authored public compositions.
+    
+    Compositions are ordered by published_at descending (most recent first).
+    Returns 404 if the profile doesn't exist.
+    """
+    from models.profile import Profile
+    from controllers.profile.avatar import get_avatar_url
+    from types_definitions.profile import (
+        PublicProfileWithCompositions,
+        PublicCompositionInfo,
+    )
+    
+    profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    # Get authored public compositions with pagination
+    composers, total = controllers.profile.get_authored_public_compositions(db, user_id, limit=limit, offset=offset)
+    
+    avatar_url = None
+    if profile.avatar_user_id:
+        avatar_url = get_avatar_url(profile.avatar_user_id, size=256)
+    
+    # Build composition info with public cover URLs
+    compositions = []
+    for art in composers:
+        from controllers.asset.signed_url import _build_public_url
+        meta = art.meta or {}
+        cover_url = None
+        if meta.get("cover_asset_id"):
+            try:
+                cover_url = _build_public_url(meta["cover_asset_id"], size=512)
+            except Exception:
+                pass
+        elif art.type == "gallery" and gallery_mosaic_exists(art.id):
+            cover_url = f"/public/artifacts/{art.id}/cover"
+        
+        content = art.content or {}
+        published_at = content.get("published_at") or art.created_at.isoformat()
+        
+        compositions.append(PublicCompositionInfo(
+            id=str(art.id),
+            name=art.name,
+            description=art.description,
+            cover_url=cover_url,
+            published_at=published_at,
+            public_magic_id=str(art.public_magic_id) if art.public_magic_id else str(art.id),
+        ))
+    
+    has_more = (offset + limit) < total
+    
+    return {
+        "user_id": profile.user_id,
+        "display_name": profile.display_name,
+        "bio": profile.bio,
+        "avatar_url": avatar_url,
+        "compositions": compositions,
+        "total": total,
+        "has_more": has_more,
+    }
+
+
+@router.get("/authors")
+async def public_authors(
+    db: Session = Depends(get_db),
+):
+    """
+    List all users who are authors on at least one public composition.
+    
+    Only includes profiles with a display_name set.
+    """
+    from controllers.profile.avatar import get_avatar_url
+    from types_definitions.profile import PublicAuthorListItem
+    
+    authors = controllers.profile.list_public_authors(db)
+    
+    result = []
+    for a in authors:
+        avatar_url = None
+        if a.get("avatar_user_id"):
+            avatar_url = get_avatar_url(a["avatar_user_id"], size=256)
+        
+        result.append(PublicAuthorListItem(
+            user_id=a["user_id"],
+            display_name=a["display_name"],
+            bio=a.get("bio"),
+            avatar_url=avatar_url,
+            composition_count=a["composition_count"],
+            latest_published_at=a.get("latest_published_at"),
+        ))
+    
+    return result

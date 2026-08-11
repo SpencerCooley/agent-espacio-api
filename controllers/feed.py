@@ -16,6 +16,7 @@ from sqlalchemy import desc
 
 from models.feed_item import FeedItem
 from models.artifact import Artifact
+from models.profile import Profile
 from controllers.public import is_artifact_public
 from controllers.settings import get_public_theme
 from controllers.themes import get_public_theme_definition
@@ -23,9 +24,10 @@ from controllers.asset.signed_url import _build_public_url
 from services.file_storage import gallery_mosaic_exists, get_gallery_mosaic_path
 
 
-def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None, featured_level: Optional[int] = None) -> Dict[str, Any]:
+def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None, featured_level: Optional[int] = None, db: Session = None) -> Dict[str, Any]:
     """Serialize an artifact into a feed item dict."""
     meta = artifact.meta or {}
+    content = artifact.content or {}
     cover_asset_id = meta.get("cover_asset_id")
     cover_url = None
     if cover_asset_id:
@@ -40,7 +42,6 @@ def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None,
 
     # Gallery first-image fallback
     if not cover_url and artifact.type == "gallery":
-        content = artifact.content or {}
         items = content.get("items", []) if isinstance(content, dict) else []
         if items:
             first_aid = items[0].get("asset_id")
@@ -49,6 +50,31 @@ def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None,
                     cover_url = _build_public_url(first_aid, size=512)
                 except Exception:
                     pass
+
+    # Resolve author (newspaper-bylaw: content.author_id -> profile)
+    author = None
+    author_id_str = content.get("author_id")
+    if author_id_str and db is not None:
+        try:
+            author_user_id = int(author_id_str)
+            profile = db.query(Profile).filter(Profile.user_id == author_user_id).first()
+            if profile:
+                from controllers.profile.avatar import get_avatar_url
+                avatar_url = None
+                if profile.avatar_user_id:
+                    avatar_url = get_avatar_url(profile.avatar_user_id, size=128)
+                author = {
+                    "user_id": profile.user_id,
+                    "display_name": profile.display_name,
+                    "avatar_url": avatar_url,
+                }
+        except (ValueError, TypeError):
+            pass
+
+    # Determine published_at (override or fallback to created_at)
+    published_at = content.get("published_at")
+    if not published_at:
+        published_at = artifact.created_at.isoformat() if artifact.created_at else None
 
     return {
         "id": str(artifact.id),
@@ -62,6 +88,8 @@ def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None,
         "sort_order": sort_order,
         "featured_level": featured_level,
         "cover_url": cover_url,
+        "author": author,
+        "published_at": published_at,
     }
 
 
@@ -95,22 +123,23 @@ def list_feed_items(
 
     if tag:
         # --- Tag mode: open discovery, no feed_items join ---
-        # Fetch extra candidates so public-status filtering doesn't fool has_more.
+        # Fetch ALL matching candidates, then filter/sort/paginate in Python
+        # because ordering is by published_at (JSONB), not a DB column.
         candidates = (
             db.query(Artifact)
             .filter(Artifact.type == "composer")
             .filter(Artifact.meta.op("@>")({"tags": [tag]}))
-            .order_by(desc(Artifact.updated_at))
-            .offset(offset)
-            .limit(limit + 10)
             .all()
         )
 
+        all_items = []
         for artifact in candidates:
             if is_artifact_public(db, artifact):
-                items.append(_artifact_to_feed_dict(artifact))
-            if len(items) >= limit + 1:
-                break
+                all_items.append(_artifact_to_feed_dict(artifact, db=db))
+
+        # Sort by published_at descending (fallback to created_at)
+        all_items.sort(key=lambda x: (x.get("published_at") or ""), reverse=True)
+        items = all_items
 
     else:
         # --- Main feed mode: curated via feed_items with featured slots ---
@@ -125,41 +154,45 @@ def list_feed_items(
             .all()
         )
 
+        featured_items = []
         for feed_item, artifact in featured_candidates:
             if is_artifact_public(db, artifact):
-                items.append(_artifact_to_feed_dict(
+                featured_items.append(_artifact_to_feed_dict(
                     artifact,
                     sort_order=feed_item.sort_order,
                     featured_level=feed_item.featured_level,
+                    db=db,
                 ))
-            if len(items) >= limit + 1:
-                break
 
-        # Latest items (not featured) ordered by existing sort rules
-        if len(items) < limit:
-            latest_candidates = (
-                db.query(FeedItem, Artifact)
-                .join(Artifact, FeedItem.artifact_id == Artifact.id)
-                .filter(Artifact.type == "composer")
-                .filter(FeedItem.featured_level == None)
-                .order_by(FeedItem.sort_order.desc(), FeedItem.updated_at.desc())
-                .offset(offset)
-                .limit(limit + 10)
-                .all()
-            )
+        # Latest items (not featured) — fetch ALL, sort by published_at in Python
+        latest_candidates = (
+            db.query(FeedItem, Artifact)
+            .join(Artifact, FeedItem.artifact_id == Artifact.id)
+            .filter(Artifact.type == "composer")
+            .filter(FeedItem.featured_level == None)
+            .all()
+        )
 
-            for feed_item, artifact in latest_candidates:
-                if is_artifact_public(db, artifact):
-                    items.append(_artifact_to_feed_dict(
-                        artifact,
-                        sort_order=feed_item.sort_order,
-                        featured_level=feed_item.featured_level,
-                    ))
-                if len(items) >= limit + 1:
-                    break
+        latest_items = []
+        for feed_item, artifact in latest_candidates:
+            if is_artifact_public(db, artifact):
+                latest_items.append(_artifact_to_feed_dict(
+                    artifact,
+                    sort_order=feed_item.sort_order,
+                    featured_level=feed_item.featured_level,
+                    db=db,
+                ))
 
-    has_more = len(items) > limit
-    items = items[:limit]
+        # Sort latest by published_at descending (fallback to created_at)
+        latest_items.sort(key=lambda x: (x.get("published_at") or ""), reverse=True)
+
+        # Featured first (by slot), then latest by publish date
+        items = featured_items + latest_items
+
+    # Apply pagination
+    total = len(items)
+    paginated = items[offset:offset + limit]
+    has_more = (offset + limit) < total
 
     # Resolve public theme
     public_theme_pref = get_public_theme(db)
@@ -173,8 +206,8 @@ def list_feed_items(
     }
 
     return {
-        "items": items,
-        "total": len(items),
+        "items": paginated,
+        "total": total,
         "has_more": has_more,
         "public_theme": public_theme_response,
     }
