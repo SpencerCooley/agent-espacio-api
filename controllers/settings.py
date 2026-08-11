@@ -141,27 +141,26 @@ def get_branding(db: Session) -> Dict[str, Any]:
 
 def get_public_branding(db: Session) -> Dict[str, Any]:
     """
-    Get the branding settings enriched with signed URLs for public access.
+    Get the branding settings enriched with public URLs.
 
-    Signed URLs let unauthenticated visitors load logo/background assets
-    without credentials (1-hour expiry).
+    Public URLs (/public/assets/{id}/download) work without expiry and
+    never suffer from SSR cache staleness.
     """
-    from uuid import UUID
-    from controllers.asset.signed_url import generate_signed_url
+    from controllers.asset.signed_url import _build_public_url
 
     branding = get_branding(db)
 
-    def _signed_url(asset_id: str | None, size: int = None) -> str | None:
+    def _public_url(asset_id: str | None, size: int = None) -> str | None:
         if not asset_id:
             return None
         try:
-            return generate_signed_url(UUID(asset_id), size=size, expiry_seconds=3600)
+            return _build_public_url(asset_id, size=size)
         except Exception:
             return None
 
-    branding['logo_light_url'] = _signed_url(branding.get('logo_light_asset_id'), size=256)
-    branding['logo_dark_url'] = _signed_url(branding.get('logo_dark_asset_id'), size=256)
-    branding['background_url'] = _signed_url(branding.get('background_asset_id'), size=512)
+    branding['logo_light_url'] = _public_url(branding.get('logo_light_asset_id'), size=256)
+    branding['logo_dark_url'] = _public_url(branding.get('logo_dark_asset_id'), size=256)
+    branding['background_url'] = _public_url(branding.get('background_asset_id'), size=512)
 
     return branding
 

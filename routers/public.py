@@ -219,9 +219,9 @@ async def public_view(
 
     elif kind == 'artifact':
         import copy
-        from controllers.asset.signed_url import enrich_content_with_signed_urls, generate_signed_url
-        enriched_content = enrich_content_with_signed_urls(
-            copy.deepcopy(item.content or {}), expiry_seconds=3600
+        from controllers.asset.signed_url import enrich_content_with_public_urls, _build_public_url
+        enriched_content = enrich_content_with_public_urls(
+            copy.deepcopy(item.content or {}), size=512
         )
         # Include publish config for repos
         publish_config = None
@@ -240,7 +240,7 @@ async def public_view(
         cover_asset_id = (item.meta or {}).get("cover_asset_id")
         if cover_asset_id:
             try:
-                cover_url = generate_signed_url(cover_asset_id, size=512, expiry_seconds=3600)
+                cover_url = _build_public_url(cover_asset_id, size=512)
             except Exception:
                 pass
 
@@ -255,7 +255,7 @@ async def public_view(
                 first_asset_id = items[0].get("asset_id")
                 if first_asset_id:
                     try:
-                        cover_url = generate_signed_url(first_asset_id, size=512, expiry_seconds=3600)
+                        cover_url = _build_public_url(first_asset_id, size=512)
                     except Exception:
                         pass
         return {

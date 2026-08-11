@@ -104,33 +104,126 @@ def is_folder_public(db: Session, folder: Folder) -> bool:
 def is_asset_public(db: Session, asset: Asset) -> bool:
     """
     Check if an asset is publicly accessible.
-    
+
     An asset is public if:
     1. It is directly marked as public, OR
     2. Its parent folder or any ancestor is public, OR
-    3. It is linked from a public artifact (derived access)
-    
+    3. It is referenced by any publicly accessible artifact (derived access).
+       This includes nested access: a public composer references Note B, and
+       Note B contains image Asset C — Asset C is public. Also covers
+       meta.cover_asset_id, linked_asset_ids, image nodes, and gallery items.
+    4. It is used as public branding (logo / background) in settings.
+
     Args:
         db: Database session
         asset: Asset to check
-        
+
     Returns:
         True if public, False otherwise
     """
     # Direct public
     if asset.is_public:
         return True
-    
+
     # Parent folder or any ancestor is public
     if asset.folder_id:
         folder = db.query(Folder).filter(Folder.id == asset.folder_id).first()
         if folder and is_folder_public(db, folder):
             return True
-    
-    # Derived access: linked from a public artifact
-    if is_asset_linked_by_public_artifact(db, asset.id):
+
+    # Derived access: referenced by any publicly accessible artifact
+    if _is_asset_referenced_by_public_artifact(db, asset.id):
         return True
-    
+
+    # Derived access: used as public branding (logo / background) in settings
+    if _is_asset_public_branding(db, asset.id):
+        return True
+
+    return False
+
+
+def _is_asset_public_branding(db: Session, asset_id: UUID) -> bool:
+    """Check if an asset is used as branding (logo/background) for the public site."""
+    from models.settings import Setting
+    row = db.query(Setting).filter(Setting.key == "branding").first()
+    if not row or not isinstance(row.value, dict):
+        return False
+    asset_id_str = str(asset_id)
+    for key in ("logo_light_asset_id", "logo_dark_asset_id", "background_asset_id"):
+        if str(row.value.get(key) or "") == asset_id_str:
+            return True
+    return False
+
+
+def _is_asset_referenced_by_public_artifact(db: Session, asset_id: UUID) -> bool:
+    """
+    Check if an asset is referenced by any publicly accessible artifact.
+
+    This handles both direct and nested derived access:
+    - A public artifact embeds Asset A (image node, gallery item, cover image).
+    - A public composer references Note B, and Note B embeds Asset C —
+      Asset C is public too.
+
+    Scans only artifacts known to be public (directly, via folder, or via
+    composer reference) to avoid a full table scan.
+    """
+    asset_id_str = str(asset_id)
+
+    # Collect all artifacts that are publicly accessible
+    public_artifacts: list[Artifact] = []
+    seen_ids: set[str] = set()
+
+    def _add(artifact: Artifact | None):
+        if artifact and str(artifact.id) not in seen_ids:
+            seen_ids.add(str(artifact.id))
+            public_artifacts.append(artifact)
+
+    # 1. Directly public artifacts
+    for art in db.query(Artifact).filter(Artifact.is_public == True).all():
+        _add(art)
+
+    # 2. Artifacts in public folders
+    public_folder_ids = [f.id for f in db.query(Folder).filter(Folder.is_public == True).all()]
+    if public_folder_ids:
+        for art in db.query(Artifact).filter(Artifact.folder_id.in_(public_folder_ids)).all():
+            _add(art)
+
+    # 3. Artifacts referenced by public composers (nested derived access)
+    referenced_ids: set[str] = set()
+    public_composers = db.query(Artifact).filter(
+        Artifact.is_public == True,
+        Artifact.type == "composer"
+    ).all()
+    for composer in public_composers:
+        sections = (composer.content or {}).get("sections", [])
+        for section in sections:
+            if isinstance(section, dict):
+                aid = section.get("artifact_id")
+                if aid:
+                    referenced_ids.add(str(aid))
+
+    if public_folder_ids:
+        folder_composers = db.query(Artifact).filter(
+            Artifact.folder_id.in_(public_folder_ids),
+            Artifact.type == "composer"
+        ).all()
+        for composer in folder_composers:
+            sections = (composer.content or {}).get("sections", [])
+            for section in sections:
+                if isinstance(section, dict):
+                    aid = section.get("artifact_id")
+                    if aid:
+                        referenced_ids.add(str(aid))
+
+    if referenced_ids:
+        for art in db.query(Artifact).filter(Artifact.id.in_(list(referenced_ids))).all():
+            _add(art)
+
+    # Scan all collected public artifacts for the asset (covers meta.cover_asset_id too)
+    for artifact in public_artifacts:
+        if _artifact_references_asset(artifact, asset_id_str):
+            return True
+
     return False
 
 
@@ -220,72 +313,39 @@ def is_artifact_referenced_by_public_composer(db: Session, artifact_id: UUID) ->
     return False
 
 
-def is_asset_linked_by_public_artifact(db: Session, asset_id: UUID) -> bool:
+def _artifact_references_asset(artifact: Artifact, asset_id_str: str) -> bool:
     """
-    Check if an asset is linked by any public artifact.
-    
-    Looks through artifact.content for image nodes with data-asset-id
-    matching the given asset_id.
-    
-    Args:
-        db: Database session
-        asset_id: Asset UUID to check
-        
-    Returns:
-        True if linked by a public artifact, False otherwise
+    Return True if an artifact references the given asset anywhere:
+    - meta.cover_asset_id (featured / cover image)
+    - content.linked_asset_ids
+    - TipTap image nodes (data-asset-id)
+    - gallery items (asset_id or association.id)
     """
-    asset_id_str = str(asset_id)
-    
-    # Query all public artifacts
-    public_artifacts = db.query(Artifact).filter(Artifact.is_public == True).all()
-    
-    for artifact in public_artifacts:
-        # Check linked_asset_ids at top level
-        content = artifact.content
-        if content and isinstance(content, dict):
-            linked_ids = content.get('linked_asset_ids', [])
-            if asset_id_str in linked_ids:
-                return True
+    # Featured image lives in meta.cover_asset_id, not content
+    meta = artifact.meta or {}
+    if str(meta.get("cover_asset_id") or "") == asset_id_str:
+        return True
 
-            # Also check for data-asset-id in content nodes
-            doc_content = content.get('content', {})
-            if isinstance(doc_content, dict):
-                nodes = doc_content.get('content', [])
-                if _scan_nodes_for_asset_id(nodes, asset_id_str):
-                    return True
+    content = artifact.content
+    if not content or not isinstance(content, dict):
+        return False
 
-            # Also check gallery items
-            gallery_items = content.get('items', [])
-            if _scan_gallery_items_for_asset_id(gallery_items, asset_id_str):
-                return True
+    linked_ids = content.get("linked_asset_ids", [])
+    if asset_id_str in linked_ids:
+        return True
 
-    # Also check artifacts in public folders
-    # First get all public folders
-    public_folders = db.query(Folder).filter(Folder.is_public == True).all()
-    public_folder_ids = [f.id for f in public_folders]
+    doc_content = content.get("content", {})
+    if isinstance(doc_content, dict):
+        nodes = doc_content.get("content", [])
+        if _scan_nodes_for_asset_id(nodes, asset_id_str):
+            return True
+    elif isinstance(doc_content, list):
+        if _scan_nodes_for_asset_id(doc_content, asset_id_str):
+            return True
 
-    if public_folder_ids:
-        folder_artifacts = db.query(Artifact).filter(
-            Artifact.folder_id.in_(public_folder_ids)
-        ).all()
-
-        for artifact in folder_artifacts:
-            content = artifact.content
-            if content and isinstance(content, dict):
-                linked_ids = content.get('linked_asset_ids', [])
-                if asset_id_str in linked_ids:
-                    return True
-
-                doc_content = content.get('content', {})
-                if isinstance(doc_content, dict):
-                    nodes = doc_content.get('content', [])
-                    if _scan_nodes_for_asset_id(nodes, asset_id_str):
-                        return True
-
-                # Also check gallery items
-                gallery_items = content.get('items', [])
-                if _scan_gallery_items_for_asset_id(gallery_items, asset_id_str):
-                    return True
+    gallery_items = content.get("items", [])
+    if _scan_gallery_items_for_asset_id(gallery_items, asset_id_str):
+        return True
 
     return False
 
@@ -336,7 +396,13 @@ def _scan_gallery_items_for_asset_id(items, asset_id_str):
         return False
 
     for item in items:
-        if isinstance(item, dict) and item.get('asset_id') == asset_id_str:
+        if not isinstance(item, dict):
+            continue
+        if item.get('asset_id') == asset_id_str:
+            return True
+        # Composer gallery format: {association: {id: ..., type: 'asset'}}
+        assoc = item.get('association')
+        if isinstance(assoc, dict) and assoc.get('type') == 'asset' and str(assoc.get('id', '')) == asset_id_str:
             return True
 
     return False

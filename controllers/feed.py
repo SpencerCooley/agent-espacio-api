@@ -19,7 +19,7 @@ from models.artifact import Artifact
 from controllers.public import is_artifact_public
 from controllers.settings import get_public_theme
 from controllers.themes import get_public_theme_definition
-from controllers.asset.signed_url import generate_signed_url
+from controllers.asset.signed_url import _build_public_url
 from services.file_storage import gallery_mosaic_exists, get_gallery_mosaic_path
 
 
@@ -30,7 +30,7 @@ def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None,
     cover_url = None
     if cover_asset_id:
         try:
-            cover_url = generate_signed_url(cover_asset_id, size=512, expiry_seconds=3600)
+            cover_url = _build_public_url(cover_asset_id, size=512)
         except Exception:
             pass
 
@@ -46,7 +46,7 @@ def _artifact_to_feed_dict(artifact: Artifact, sort_order: Optional[int] = None,
             first_aid = items[0].get("asset_id")
             if first_aid:
                 try:
-                    cover_url = generate_signed_url(first_aid, size=512, expiry_seconds=3600)
+                    cover_url = _build_public_url(first_aid, size=512)
                 except Exception:
                     pass
 

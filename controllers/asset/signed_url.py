@@ -280,3 +280,103 @@ def _inject_signed_urls_into_nodes(nodes: list, signed_urls: dict) -> None:
         # Recurse into child nodes
         children = node.get('content', [])
         _inject_signed_urls_into_nodes(children, signed_urls)
+
+
+def _build_public_url(asset_id: str, size: Optional[int] = None) -> str:
+    """Build a public asset download URL (no expiry, no signature)."""
+    url = f"/public/assets/{asset_id}/download"
+    if size is not None:
+        url += f"?size={size}"
+    return url
+
+
+def enrich_content_with_public_urls(content: dict, size: Optional[int] = 512) -> dict:
+    """
+    Add public URLs to all asset references within artifact content.
+
+    Mutates content in-place to replace src attributes with public URLs.
+    Returns the enriched content dict.
+    """
+    if not isinstance(content, dict):
+        return content
+
+    # Collect all unique asset IDs
+    asset_ids = set()
+    _scan_content_for_assets(content, asset_ids)
+
+    if not asset_ids:
+        return content
+
+    # Generate public URLs for all found assets
+    public_urls = {}
+    for asset_id in asset_ids:
+        public_urls[asset_id] = _build_public_url(asset_id, size)
+
+    # Inject public URLs back into content
+    _inject_public_urls(content, public_urls)
+
+    return content
+
+
+def _inject_public_urls(content: dict, public_urls: dict) -> None:
+    """Inject public_url fields and update src for asset references in content dict."""
+    if not isinstance(content, dict):
+        return
+
+    # Gallery items
+    items = content.get('items', [])
+    if isinstance(items, list):
+        for item in items:
+            if isinstance(item, dict):
+                asset_id = item.get('asset_id')
+                if asset_id and str(asset_id) in public_urls:
+                    item['public_url'] = public_urls[str(asset_id)]
+                # Composer gallery format
+                assoc = item.get('association')
+                if isinstance(assoc, dict) and assoc.get('type') == 'asset':
+                    assoc_id = str(assoc.get('id', ''))
+                    if assoc_id and assoc_id in public_urls:
+                        item['public_url'] = public_urls[assoc_id]
+
+    # Note/image nodes — TipTap doc format: {"type": "doc", "content": [...]}
+    doc_content = content.get('content', {})
+    if isinstance(doc_content, list):
+        _inject_public_urls_into_nodes(doc_content, public_urls)
+    elif isinstance(doc_content, dict):
+        nodes = doc_content.get('content', [])
+        _inject_public_urls_into_nodes(nodes, public_urls)
+
+    # Composer sections
+    sections = content.get('sections', [])
+    if isinstance(sections, list):
+        for section in sections:
+            if isinstance(section, dict):
+                section_content = section.get('content')
+                if isinstance(section_content, dict):
+                    _inject_public_urls(section_content, public_urls)
+
+
+def _inject_public_urls_into_nodes(nodes: list, public_urls: dict) -> None:
+    """Inject public URLs into TipTap content nodes (update src + public_url attr)."""
+    if not isinstance(nodes, list):
+        return
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        attrs = node.get('attrs', {})
+        asset_id = attrs.get('data-asset-id')
+        # Fallback: extract asset ID from src if data-asset-id is missing
+        if not asset_id:
+            src = attrs.get('src', '')
+            if '/assets/' in src and '/download' in src:
+                parts = src.split('/')
+                for i, part in enumerate(parts):
+                    if part == 'assets' and i + 1 < len(parts):
+                        asset_id = parts[i + 1]
+                        break
+        if asset_id and str(asset_id) in public_urls:
+            attrs['src'] = public_urls[str(asset_id)]
+            attrs['public_url'] = public_urls[str(asset_id)]
+        # Recurse into child nodes
+        children = node.get('content', [])
+        _inject_public_urls_into_nodes(children, public_urls)

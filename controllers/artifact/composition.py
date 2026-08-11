@@ -58,20 +58,28 @@ def _serialize_item(item, include_internal: bool = True) -> Optional[Dict[str, A
     return None
 
 
-def _serialize_composer(composer: Artifact, include_internal: bool = True) -> Dict[str, Any]:
+def _serialize_composer(composer: Artifact, include_internal: bool = True, public_urls: bool = False) -> Dict[str, Any]:
     """
     Serialize a composer artifact into a plain dict.
 
     When include_internal is False (public-facing responses), internal
     bookkeeping fields (folder_id, created_by_id) are omitted.
+
+    When public_urls is True, cover_url uses public /public/assets/... URLs
+    that never expire (good for SSR). When False, uses signed URLs for
+    authenticated workspace views.
     """
-    from controllers.asset.signed_url import generate_signed_url
     meta = composer.meta or {}
     cover_asset_id = meta.get("cover_asset_id")
     cover_url = None
     if cover_asset_id:
         try:
-            cover_url = generate_signed_url(cover_asset_id, size=512, expiry_seconds=3600)
+            if public_urls:
+                from controllers.asset.signed_url import _build_public_url
+                cover_url = _build_public_url(cover_asset_id, size=512)
+            else:
+                from controllers.asset.signed_url import generate_signed_url
+                cover_url = generate_signed_url(cover_asset_id, size=512, expiry_seconds=3600)
         except Exception:
             pass
 
@@ -215,7 +223,7 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
             assets[str(ast.id)] = ast
 
     # Build resolved sections, filtering by public access
-    from controllers.asset.signed_url import enrich_content_with_signed_urls
+    from controllers.asset.signed_url import enrich_content_with_public_urls
 
     resolved_sections = []
     for section in sections_data:
@@ -234,11 +242,11 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
                 is_public = is_artifact_public(db, item)
 
         if is_public and item and isinstance(item, Artifact):
-            # Enrich artifact content with signed URLs for embedded assets
+            # Enrich artifact content with public URLs for embedded assets
             import copy
             item_dict = _serialize_item(item, include_internal=False)
-            item_dict["content"] = enrich_content_with_signed_urls(
-                copy.deepcopy(item.content or {}), expiry_seconds=3600
+            item_dict["content"] = enrich_content_with_public_urls(
+                copy.deepcopy(item.content or {}), size=512
             )
         else:
             item_dict = _serialize_item(item, include_internal=False) if is_public else None
@@ -250,6 +258,6 @@ def resolve_public_composition(db: Session, composer: Artifact) -> Dict[str, Any
         })
 
     return {
-        "composer": _serialize_composer(composer, include_internal=False),
+        "composer": _serialize_composer(composer, include_internal=False, public_urls=True),
         "sections": resolved_sections,
     }
