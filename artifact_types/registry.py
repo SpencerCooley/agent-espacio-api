@@ -2704,9 +2704,13 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             '  ]\n'
             "}\n\n"
             "AUTHORSHIP:\n"
-            "  Compositions support an assigned author (newspaper-bylaw model). Set author_id in content\n"
-            "  to the user ID of the displayed author. The author must have a profile with display_name.\n"
-            "  published_at overrides the creation date for display purposes (ISO 8601 format).\n\n"
+            "  Compositions support an assigned author (newspaper-bylaw model). Set content.author_id\n"
+            "  to the numeric user ID (as a string, e.g. \"7\") of the displayed author. The author must\n"
+            "  have a profile with display_name set. published_at overrides the creation date for\n"
+            "  display purposes (ISO 8601 format); omit it to fall back to created_at.\n\n"
+            "  To find a user ID for attribution, search profiles: GET /profiles/search?q=<name-or-email>\n"
+            "  (returns user_id, display_name, email, avatar_url). A user's public profile page is\n"
+            "  available at GET /public/profiles/{user_id}, and the full author list at GET /public/authors.\n\n"
             "SECTIONS:\n"
             "  Each section references an existing artifact or media asset by UUID.\n"
             "  The `artifact_id` field accepts both artifact UUIDs and video/audio asset UUIDs.\n"
@@ -2754,9 +2758,8 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "properties": {
                 "author_id": {
                     "type": "string",
-                    "format": "uuid",
                     "nullable": True,
-                    "description": "User ID of the displayed author (newspaper-bylaw model). Must have a public profile."
+                    "description": "Numeric user ID (as a string, e.g. \"7\") of the displayed author (newspaper-bylaw model). Must have a public profile with display_name. Find IDs via GET /profiles/search?q="
                 },
                 "published_at": {
                     "type": "string",
@@ -2787,7 +2790,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
         },
         "example_content": {
             "content": {
-                "author_id": "123e4567-e89b-12d3-a456-426614174000",
+                "author_id": "7",
                 "published_at": "2026-08-15T10:30:00Z",
                 "sections": [
                     {

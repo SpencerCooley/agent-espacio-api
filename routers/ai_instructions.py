@@ -188,6 +188,69 @@ Include `description` at the top level and `cover_asset_id` inside `meta` when c
 ### Recommendation
 Always set `description` and `meta.cover_asset_id` when creating artifacts that may be shared publicly, featured in the feed, or indexed by search engines. Update them at any time via `PUT /artifacts/{id}`.
 
+## 5c. Profiles & Authorship
+
+Every user has a public profile (display name, bio, avatar). Profiles exist for **all** users — including existing ones — and are auto-created the first time they are fetched. Use them to attribute content (composer artifacts support a newspaper-bylaw author) and to build author pages.
+
+### Get Your Own Profile (auto-creates if missing)
+GET ${AGENT_ESPACIO_API}/profiles/me
+
+Returns the current user's profile (creates an empty one on first call). Update it with:
+
+```
+PUT /profiles/me
+{
+  "display_name": "Ada Lovelace",
+  "bio": "Researcher and writer."
+}
+```
+
+### Upload an Avatar
+POST /profiles/me/avatar  (multipart/form-data, field: file)
+
+Avatars are served at: GET /profiles/avatar/{user_id}/{size}  (sizes 128, 256, 512)
+
+### Find a User ID for Attribution
+To assign an author to a composer artifact you must use the user's numeric user ID.
+
+GET ${AGENT_ESPACIO_API}/profiles/search?q=<name-or-email>
+
+Returns matching users with their user_id, display_name, email, and avatar_url. Example result:
+```json
+[
+  {
+    "user_id": 7,
+    "display_name": "Ada Lovelace",
+    "email": "ada@example.com",
+    "avatar_url": "/profiles/avatar/7/128"
+  }
+]
+```
+
+### Assign an Author to a Composition
+Composer artifacts support `author_id` and `published_at` inside their `content`:
+
+POST ${AGENT_ESPACIO_API}/artifacts
+```json
+{
+  "name": "My Story",
+  "type": "composer",
+  "folder_id": "...",
+  "content": {
+    "author_id": "7",
+    "published_at": "2026-08-15T10:30:00Z",
+    "sections": [...]
+  }
+}
+```
+
+- `author_id` — string form of the numeric user ID (see /profiles/search). The author display_name comes from their profile.
+- `published_at` — ISO 8601 datetime that overrides the creation date for display. Omit to fall back to created_at.
+
+### Public Author Discovery (No Auth)
+- GET /public/profiles/{user_id} — A public profile page with the user's public compositions (ordered by published_at desc).
+- GET /public/authors — All users who author at least one public composition (only those with a display_name set).
+
 ## 6. SSH Keys and Git Access (Human-Only Setup)
 
 AI agents may clone, push, and pull repo artifacts using normal git commands over SSH. The agent **assumes the machine already has valid SSH keys set up by the human user**.
@@ -364,6 +427,18 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 - DELETE /artifacts/{id} — Delete artifact
 - GET /artifacts/docs — List all artifact type definitions
 - GET /artifacts/docs/{type_key} — Get specific artifact type docs
+
+### Profiles (auth required)
+- GET /profiles/me — Get current user's profile (auto-creates if missing)
+- PUT /profiles/me — Update display_name and bio
+- POST /profiles/me/avatar — Upload avatar (multipart: file)
+- GET /profiles/search?q=term — Search users by display_name or email (for author attribution)
+- GET /profiles/{user_id} — Get a single profile by user ID
+- GET /profiles/avatar/{user_id}/{size} — Serve an avatar image (sizes 128, 256, 512; no auth)
+
+### Public Profiles (No Auth)
+- GET /public/profiles/{user_id} — Public profile with the user's public compositions
+- GET /public/authors — List all published authors (users with a display_name and public compositions)
 
 ### Repositories (Repo Artifacts)
 - GET /artifacts/{id}/repo — Repo metadata (commits, file count, size, publish config)
