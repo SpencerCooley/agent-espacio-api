@@ -186,8 +186,10 @@ async def public_view(
     elif kind == 'asset':
         # Build an absolute download URL so the response is self-describing
         # for agents that discover this page via curl or search indexing.
+        # Inherited-public assets may not have a public_magic_id; fall back to raw id.
         base = str(request.base_url).rstrip("/")
-        download_url = f"{base}/public/assets/{item.public_magic_id}/download"
+        asset_id_for_url = item.public_magic_id or item.id
+        download_url = f"{base}/public/assets/{asset_id_for_url}/download"
 
         thumbnail_url = None
         if item.is_image or item.mime_type.startswith("video/") or item.mime_type == "model/gltf-binary":
