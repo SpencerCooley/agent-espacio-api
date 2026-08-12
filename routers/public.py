@@ -184,12 +184,10 @@ async def public_view(
         }
 
     elif kind == 'asset':
-        # Build an absolute download URL so the response is self-describing
-        # for agents that discover this page via curl or search indexing.
-        # Inherited-public assets may not have a public_magic_id; fall back to raw id.
-        base = str(request.base_url).rstrip("/")
+        # Return relative URLs so the frontend can prepend its own API_BASE_URL.
+        # This avoids http/https protocol leaks from request.base_url behind proxies.
         asset_id_for_url = item.public_magic_id or item.id
-        download_url = f"{base}/public/assets/{asset_id_for_url}/download"
+        download_url = f"/public/assets/{asset_id_for_url}/download"
 
         thumbnail_url = None
         if item.is_image or item.mime_type.startswith("video/") or item.mime_type == "model/gltf-binary":
@@ -638,9 +636,10 @@ async def public_repo_metadata(magic_id: UUID, request: Request, db: Session = D
 
     artifact_id = UUID(str(artifact.id))
 
-    # Build clone URL from request base URL
-    base_url = os.environ.get("PUBLIC_URL") or str(request.base_url).rstrip("/")
-    clone_url = f"{base_url}/git/{artifact_id}.git"
+    # Build clone URL from PUBLIC_URL env var (must be set in production).
+    # Never fall back to request.base_url — it leaks http:// behind reverse proxies.
+    public_url = os.environ.get("PUBLIC_URL", "")
+    clone_url = f"{public_url}/git/{artifact_id}.git" if public_url else None
 
     if not _repo_exists(artifact_id):
         return {"name": artifact.name, "description": artifact.description, "commit_count": 0, "file_count": 0, "repo_size_bytes": 0, "last_commit": None, "clone_url": clone_url, "publish": None}
@@ -672,8 +671,7 @@ async def public_repo_metadata(magic_id: UUID, request: Request, db: Session = D
         site_url = None
         slug = pub.get("slug", "")
         if slug:
-            public_url = os.environ.get("PUBLIC_URL") or str(request.base_url).rstrip("/")
-            site_url = f"{public_url}/published/{slug}/"
+            site_url = f"{public_url}/published/{slug}/" if public_url else None
         publish = {
             "enabled": True,
             "slug": slug,

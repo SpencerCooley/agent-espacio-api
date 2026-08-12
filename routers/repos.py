@@ -263,12 +263,10 @@ def _generate_slug(name: str) -> str:
     return slug[:64] or 'site'
 
 
-def _get_site_url(request: Request, slug: str) -> str:
+def _get_site_url(slug: str) -> str:
     """Build the full URL for a published site."""
     public_url = os.environ.get("PUBLIC_URL", "")
-    if not public_url:
-        public_url = str(request.base_url).rstrip("/")
-    return f"{public_url}/published/{slug}/"
+    return f"{public_url}/published/{slug}/" if public_url else ""
 
 
 def _get_published_path(artifact_id: UUID) -> str:
@@ -828,7 +826,7 @@ async def get_publish_settings(
         status=pub.status,
         last_deploy_at=pub.last_deploy_at,
         last_deploy_commit=pub.last_deploy_commit,
-        site_url=_get_site_url(request, pub.slug) if pub.slug else "",
+        site_url=_get_site_url(pub.slug) if pub.slug else "",
     )
 
 
@@ -882,7 +880,7 @@ async def update_publish_settings(
         status=pub.status,
         last_deploy_at=pub.last_deploy_at,
         last_deploy_commit=pub.last_deploy_commit,
-        site_url=_get_site_url(request, pub.slug) if pub.slug else "",
+        site_url=_get_site_url(pub.slug) if pub.slug else "",
     )
 
 
