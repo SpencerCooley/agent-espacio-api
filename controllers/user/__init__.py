@@ -10,8 +10,6 @@ from controllers.user.delete import delete_user
 from controllers.user.reset_password import (
     admin_reset_password,
     change_own_password,
-    create_reset_token,
-    reset_password_with_token,
 )
 
 __all__ = [
@@ -24,6 +22,4 @@ __all__ = [
     "delete_user",
     "admin_reset_password",
     "change_own_password",
-    "create_reset_token",
-    "reset_password_with_token",
 ]

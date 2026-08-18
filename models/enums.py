@@ -9,4 +9,5 @@ from enum import Enum
 class RoleEnum(str, Enum):
     """User roles in the system."""
     admin = "admin"
-    user = "user"
+    editor = "editor"
+    member = "member"

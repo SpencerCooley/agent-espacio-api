@@ -3,6 +3,7 @@ Users router.
 
 Endpoints for user management (admin only for most operations):
 - GET /users/me - Get current user
+- POST /users/me/change-password - Change own password
 - GET /users - List all users
 - POST /users - Create new user
 - PUT /users/{user_id} - Update user
@@ -29,7 +30,7 @@ from types_definitions.user import (
     UserListResponse,
     DeleteUserResponse,
 )
-from types_definitions.auth import AdminPasswordResetRequest
+from types_definitions.auth import AdminPasswordResetRequest, PasswordChangeRequest
 from types_definitions.common import PaginationParams
 import controllers
 
@@ -48,6 +49,34 @@ async def get_current_user_info(
     Get information about the currently authenticated user.
     """
     return current_user
+
+
+@router.post("/me/change-password")
+async def change_own_password(
+    request: PasswordChangeRequest,
+    current_user: PublicUser = Depends(require_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Change the currently authenticated user's own password.
+
+    Requires the current password for verification. All sessions are
+    invalidated on success, so the user must log in again.
+    """
+    user = controllers.user.change_own_password(
+        db=db,
+        user_id=current_user.id,
+        current_password=request.current_password,
+        new_password=request.new_password
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+
+    return {"message": "Password changed successfully. Please log in again."}
 
 
 @router.get("", response_model=UserListResponse)

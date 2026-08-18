@@ -8,7 +8,7 @@ Contains utility functions for:
 """
 
 from utils.password import hash_password, verify_password
-from utils.token import generate_token_string, generate_api_key, generate_reset_token
+from utils.token import generate_token_string, generate_api_key
 from utils.api_key import hash_api_key, get_api_key_prefix
 
 __all__ = [
@@ -16,7 +16,6 @@ __all__ = [
     "verify_password",
     "generate_token_string",
     "generate_api_key",
-    "generate_reset_token",
     "hash_api_key",
     "get_api_key_prefix",
 ]

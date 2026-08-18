@@ -14,7 +14,7 @@ def create_user(
     db: Session, 
     email: str, 
     password: str, 
-    role: RoleEnum = RoleEnum.user
+    role: RoleEnum = RoleEnum.editor
 ) -> Optional[User]:
     """
     Create a new user.
@@ -23,7 +23,7 @@ def create_user(
         db: Database session
         email: User email
         password: Plain text password (will be hashed)
-        role: User role (default: user)
+        role: User role (default: editor)
         
     Returns:
         User object if created successfully, None if email already exists

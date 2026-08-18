@@ -13,7 +13,7 @@ class CreateUserRequest(BaseModel):
     """Request to create a new user."""
     email: EmailStr
     password: str = Field(..., min_length=8, description="User password (minimum 8 characters)")
-    role: RoleEnum = Field(default=RoleEnum.user, description="User role (default: user)")
+    role: RoleEnum = Field(default=RoleEnum.editor, description="User role (default: editor)")
 
 
 class UpdateUserRequest(BaseModel):

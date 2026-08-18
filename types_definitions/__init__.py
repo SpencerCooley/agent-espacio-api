@@ -12,8 +12,6 @@ from types_definitions.auth import (
     LogoutResponse,
     PasswordChangeRequest,
     AdminPasswordResetRequest,
-    PasswordResetTokenRequest,
-    PasswordResetWithToken,
 )
 
 from types_definitions.user import (
@@ -76,8 +74,6 @@ __all__ = [
     "LogoutResponse",
     "PasswordChangeRequest",
     "AdminPasswordResetRequest",
-    "PasswordResetTokenRequest",
-    "PasswordResetWithToken",
     # User
     "CreateUserRequest",
     "UpdateUserRequest",

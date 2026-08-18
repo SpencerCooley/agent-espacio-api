@@ -52,16 +52,5 @@ class AdminPasswordResetRequest(BaseModel):
     new_password: str = Field(..., min_length=8, description="New password for the user (minimum 8 characters)")
 
 
-class PasswordResetTokenRequest(BaseModel):
-    """Request a password reset token (for user self-service)."""
-    email: EmailStr
-
-
-class PasswordResetWithToken(BaseModel):
-    """Reset password using a reset token."""
-    token: str = Field(..., description="Password reset token")
-    new_password: str = Field(..., min_length=8, description="New password (minimum 8 characters)")
-
-
 # Import at the end to avoid circular imports
 from types_definitions.user import PublicUser

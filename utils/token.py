@@ -29,13 +29,3 @@ def generate_api_key() -> str:
     """
     random_part = secrets.token_hex(16)  # 32 hex characters
     return f"agent-esp-{random_part}"
-
-
-def generate_reset_token() -> str:
-    """
-    Generate a secure password reset token.
-    
-    Returns:
-        str: Secure random token string
-    """
-    return secrets.token_urlsafe(32)

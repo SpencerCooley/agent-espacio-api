@@ -28,7 +28,7 @@ def delete_user(db: Session, user_id: int) -> Optional[int]:
     # Get user ID before deletion
     deleted_id = user.id
     
-    # Delete user (cascade will handle tokens and reset_tokens)
+    # Delete user (cascade will handle tokens)
     db.delete(user)
     db.commit()
     
