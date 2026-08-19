@@ -9,10 +9,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
-from dependencies.dependencies import get_db, require_auth
+from dependencies.dependencies import get_db, require_admin
 from controllers.feed import list_feed_items, add_to_feed, remove_from_feed, reorder_feed_item, set_featured_level
-from controllers.public import is_artifact_public
 from models.feed_item import FeedItem
+from models.user import User
 
 router = APIRouter(
     prefix="/feed",
@@ -46,12 +46,12 @@ async def get_feed(
 async def get_feed_item_status(
     artifact_id: UUID,
     db: Session = Depends(get_db),
-    user=Depends(require_auth),
+    user: User = Depends(require_admin),
 ):
     """
     Check if an artifact is in the curated feed.
 
-    Returns the feed item if found, 404 otherwise.
+    Admin only. Returns the feed item if found, 404 otherwise.
     """
     feed_item = db.query(FeedItem).filter(FeedItem.artifact_id == artifact_id).first()
     if not feed_item:
@@ -73,14 +73,13 @@ async def get_feed_item_status(
 async def create_feed_item(
     artifact_id: UUID,
     db: Session = Depends(get_db),
-    user=Depends(require_auth),
+    user: User = Depends(require_admin),
 ):
     """
     Add an artifact to the curated public feed.
 
-    Requires authentication. The artifact does not need to be public
-    at the time of adding — it simply won't appear in the public feed
-    until it becomes public.
+    Admin only. The artifact does not need to be public at the time of
+    adding — it simply won't appear in the public feed until it becomes public.
     """
     feed_item = add_to_feed(db, artifact_id)
     return {
@@ -96,12 +95,12 @@ async def create_feed_item(
 async def delete_feed_item(
     artifact_id: UUID,
     db: Session = Depends(get_db),
-    user=Depends(require_auth),
+    user: User = Depends(require_admin),
 ):
     """
     Remove an artifact from the curated public feed.
 
-    Requires authentication.
+    Admin only.
     """
     removed = remove_from_feed(db, artifact_id)
     if not removed:
@@ -117,12 +116,12 @@ async def update_feed_item_order(
     artifact_id: UUID,
     sort_order: int = Query(..., description="New sort order integer"),
     db: Session = Depends(get_db),
-    user=Depends(require_auth),
+    user: User = Depends(require_admin),
 ):
     """
     Update the sort order of a feed item.
 
-    Requires authentication.
+    Admin only.
     """
     feed_item = reorder_feed_item(db, artifact_id, sort_order)
     if not feed_item:
@@ -142,7 +141,7 @@ async def update_feed_item_featured_level(
     artifact_id: UUID,
     featured_level: Optional[int] = Query(None, ge=0, le=3, description="Featured level: 1, 2, 3 to feature, or 0/None to clear"),
     db: Session = Depends(get_db),
-    user=Depends(require_auth),
+    user: User = Depends(require_admin),
 ):
     """
     Set or clear the featured level of a feed item.
@@ -151,7 +150,7 @@ async def update_feed_item_featured_level(
     occupied slot bumps the previous occupant to not featured (X). Passing 0
     or None clears the featured level.
 
-    Requires authentication.
+    Admin only.
     """
     feed_item = set_featured_level(db, artifact_id, featured_level)
     if not feed_item:

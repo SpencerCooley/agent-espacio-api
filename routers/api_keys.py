@@ -70,10 +70,17 @@ async def create_api_key(
     
     Example: `agent-esp-a3f7b2d8e9c1f4a5b6d7e8f9a0b1c2d3`
     """
-    api_key, plain_key = controllers.api_key.create_api_key(
-        db=db,
-        name=request.name
-    )
+    try:
+        api_key, plain_key = controllers.api_key.create_api_key(
+            db=db,
+            name=request.name,
+            user_id=request.user_id,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     
     return APIKeyResponse(
         id=api_key.id,
@@ -82,7 +89,8 @@ async def create_api_key(
         prefix=api_key.prefix,
         created_at=api_key.created_at,
         last_used_at=api_key.last_used_at,
-        is_active=api_key.is_active
+        is_active=api_key.is_active,
+        user_id=api_key.user_id,
     )
 
 
@@ -134,5 +142,6 @@ async def activate_api_key(
         prefix=api_key.prefix,
         created_at=api_key.created_at,
         last_used_at=api_key.last_used_at,
-        is_active=api_key.is_active
+        is_active=api_key.is_active,
+        user_id=api_key.user_id,
     )

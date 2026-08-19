@@ -11,6 +11,7 @@ from controllers.user.reset_password import (
     admin_reset_password,
     change_own_password,
 )
+from controllers.user.scope import list_user_scopes, add_user_scope, remove_user_scope
 
 __all__ = [
     "create_user",
@@ -22,4 +23,7 @@ __all__ = [
     "delete_user",
     "admin_reset_password",
     "change_own_password",
+    "list_user_scopes",
+    "add_user_scope",
+    "remove_user_scope",
 ]

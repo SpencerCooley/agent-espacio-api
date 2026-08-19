@@ -23,9 +23,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel, Field
 
-from dependencies.dependencies import get_db, require_auth
+from dependencies.dependencies import get_db, require_auth, get_scope
 from models.user import User
 from models.artifact import Artifact
+from services.permissions import Scope, assert_can_read_artifact, assert_artifact_in_scope
 import controllers
 
 router = APIRouter(
@@ -33,6 +34,26 @@ router = APIRouter(
     tags=["Repositories"],
     responses={404: {"description": "Not found"}}
 )
+
+
+def _get_repo_artifact(db: Session, artifact_id: UUID, scope: Scope, *, write: bool = False) -> Artifact:
+    """Load a repo artifact and enforce scope. write=True uses strict in-scope check."""
+    artifact = controllers.artifact.get_artifact(db, artifact_id)
+    if not artifact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artifact not found",
+        )
+    if write:
+        assert_artifact_in_scope(db, scope, artifact)
+    else:
+        assert_can_read_artifact(db, scope, artifact)
+    if artifact.type != "repo":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Artifact is not a repository",
+        )
+    return artifact
 
 STORAGE_PATH = os.environ.get("STORAGE_PATH", "/app/storage")
 REPOS_DIR = os.path.join(STORAGE_PATH, "repos")
@@ -282,6 +303,7 @@ def _get_published_path(artifact_id: UUID) -> str:
 async def get_repo_metadata(
     artifact_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -289,18 +311,7 @@ async def get_repo_metadata(
     
     Returns git remote URL, last commit info, file count, and repo size.
     """
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Artifact not found"
-        )
-    
-    if artifact.type != "repo":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Artifact is not a repository"
-        )
+    artifact = _get_repo_artifact(db, artifact_id, scope)
     
     # Build git remote URL (use GIT_HOST env or default to localhost for local dev)
     git_host = os.environ.get("GIT_HOST", "localhost")
@@ -384,6 +395,7 @@ async def get_repo_tree(
     ref: str = "HEAD",
     path: str = "",
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -392,18 +404,7 @@ async def get_repo_tree(
     - **ref**: Git ref (branch, tag, or commit SHA). Default: HEAD
     - **path**: Subdirectory path within the repo. Default: root
     """
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Artifact not found"
-        )
-    
-    if artifact.type != "repo":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Artifact is not a repository"
-        )
+    artifact = _get_repo_artifact(db, artifact_id, scope)
     
     if not _repo_exists(artifact_id):
         raise HTTPException(
@@ -466,6 +467,7 @@ async def get_repo_file(
     file_path: str,
     ref: str = "HEAD",
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -474,18 +476,7 @@ async def get_repo_file(
     - **ref**: Git ref (branch, tag, or commit SHA). Default: HEAD
     - **file_path**: Path to file within the repo
     """
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Artifact not found"
-        )
-    
-    if artifact.type != "repo":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Artifact is not a repository"
-        )
+    artifact = _get_repo_artifact(db, artifact_id, scope)
     
     if not _repo_exists(artifact_id):
         raise HTTPException(
@@ -564,24 +555,14 @@ async def get_repo_raw_file(
     file_path: str,
     ref: str = "HEAD",
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db),
 ):
     """
     Get raw file bytes from a repository (for images and other binary files).
     Requires authentication — private repos are never exposed publicly via this path.
     """
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Artifact not found",
-        )
-
-    if artifact.type != "repo":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Artifact is not a repository",
-        )
+    artifact = _get_repo_artifact(db, artifact_id, scope)
 
     if not _repo_exists(artifact_id):
         raise HTTPException(
@@ -625,6 +606,7 @@ async def get_repo_commits(
     ref: str = "HEAD",
     limit: int = 50,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -633,18 +615,7 @@ async def get_repo_commits(
     - **ref**: Git ref (branch, tag, or commit SHA). Default: HEAD
     - **limit**: Maximum commits to return. Default: 50, Max: 200
     """
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Artifact not found"
-        )
-    
-    if artifact.type != "repo":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Artifact is not a repository"
-        )
+    artifact = _get_repo_artifact(db, artifact_id, scope)
     
     if not _repo_exists(artifact_id):
         raise HTTPException(
@@ -686,6 +657,7 @@ async def get_repo_commit_detail(
     artifact_id: UUID,
     commit_hash: str,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -693,11 +665,7 @@ async def get_repo_commit_detail(
 
     - **commit_hash**: Full or short commit SHA
     """
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact:
-        raise HTTPException(status_code=404, detail="Artifact not found")
-    if artifact.type != "repo":
-        raise HTTPException(status_code=400, detail="Artifact is not a repository")
+    artifact = _get_repo_artifact(db, artifact_id, scope)
     if not _repo_exists(artifact_id):
         raise HTTPException(status_code=404, detail="Repository not initialized yet")
 
@@ -807,12 +775,11 @@ async def get_publish_settings(
     artifact_id: UUID,
     request: Request,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db),
 ):
     """Get publishing configuration for a repo artifact."""
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact or artifact.type != "repo":
-        raise HTTPException(status_code=404, detail="Repository not found")
+    artifact = _get_repo_artifact(db, artifact_id, scope)
 
     pub = _get_publish_config(artifact)
     return PublishSettingsResponse(
@@ -836,12 +803,11 @@ async def update_publish_settings(
     body: PublishSettingsRequest,
     request: Request,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db),
 ):
     """Update publishing configuration for a repo artifact."""
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact or artifact.type != "repo":
-        raise HTTPException(status_code=404, detail="Repository not found")
+    artifact = _get_repo_artifact(db, artifact_id, scope, write=True)
 
     updates = body.model_dump(exclude_unset=True)
 
@@ -888,12 +854,11 @@ async def update_publish_settings(
 async def unpublish(
     artifact_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db),
 ):
     """Unpublish a repo artifact — disable serving and remove published files."""
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact or artifact.type != "repo":
-        raise HTTPException(status_code=404, detail="Repository not found")
+    artifact = _get_repo_artifact(db, artifact_id, scope, write=True)
 
     # Remove published files
     published_path = _get_published_path(artifact_id)
@@ -923,12 +888,11 @@ async def unpublish(
 async def trigger_deploy(
     artifact_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db),
 ):
     """Manually trigger a deploy for a repo artifact."""
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact or artifact.type != "repo":
-        raise HTTPException(status_code=404, detail="Repository not found")
+    artifact = _get_repo_artifact(db, artifact_id, scope, write=True)
 
     pub = _get_publish_config(artifact)
     if not pub.enabled:
@@ -972,12 +936,11 @@ async def trigger_deploy(
 async def get_deploy_status(
     artifact_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db),
 ):
     """Get the current deploy status and history for a repo artifact."""
-    artifact = controllers.artifact.get_artifact(db, artifact_id)
-    if not artifact or artifact.type != "repo":
-        raise HTTPException(status_code=404, detail="Repository not found")
+    artifact = _get_repo_artifact(db, artifact_id, scope)
 
     pub = _get_publish_config(artifact)
     meta = artifact.meta or {}

@@ -12,7 +12,11 @@ Endpoints for user management (admin only for most operations):
 
 SSH key management has moved to the SSH Keys router (/ssh-keys).
 """
+from typing import List, Optional
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status, Body
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from dependencies.dependencies import (
@@ -23,6 +27,7 @@ from dependencies.dependencies import (
 )
 from models.user import User
 from models.enums import RoleEnum
+from models.folder import Folder
 from types_definitions.user import (
     CreateUserRequest,
     UpdateUserRequest,
@@ -33,6 +38,23 @@ from types_definitions.user import (
 from types_definitions.auth import AdminPasswordResetRequest, PasswordChangeRequest
 from types_definitions.common import PaginationParams
 import controllers
+
+
+class AddScopeRequest(BaseModel):
+    folder_id: UUID = Field(..., description="Folder to grant access to")
+
+
+class ScopeFolderResponse(BaseModel):
+    folder_id: UUID
+    name: str
+    path: str
+    is_root: bool
+    created_at: Optional[str] = None
+
+
+class ScopeListResponse(BaseModel):
+    scopes: List[ScopeFolderResponse]
+    total: int
 
 router = APIRouter(
     prefix="/users",
@@ -211,3 +233,90 @@ async def admin_reset_password(
         )
     
     return {"message": f"Password reset successfully for {user.email}"}
+
+
+@router.get("/{user_id}/scopes", response_model=ScopeListResponse)
+async def list_user_scopes(
+    user_id: int,
+    current_user: PublicUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    List folder grants for a user.
+
+    Admin only. Each grant gives access to that folder and all descendants.
+    """
+    user = controllers.user.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    rows = controllers.user.list_user_scopes(db, user_id)
+    scopes: List[ScopeFolderResponse] = []
+    for row in rows:
+        folder = db.query(Folder).filter(Folder.id == row.folder_id).first()
+        if not folder:
+            continue
+        scopes.append(
+            ScopeFolderResponse(
+                folder_id=folder.id,
+                name=folder.name,
+                path=folder.path,
+                is_root=folder.is_root,
+                created_at=row.created_at.isoformat() if row.created_at else None,
+            )
+        )
+
+    return ScopeListResponse(scopes=scopes, total=len(scopes))
+
+
+@router.post("/{user_id}/scopes", response_model=ScopeFolderResponse, status_code=status.HTTP_201_CREATED)
+async def add_user_scope(
+    user_id: int,
+    request: AddScopeRequest,
+    current_user: PublicUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Grant a user access to a folder (and its descendants).
+
+    Admin only. Idempotent if the grant already exists.
+    """
+    scope_row = controllers.user.add_user_scope(db, user_id, request.folder_id)
+    if not scope_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User or folder not found",
+        )
+
+    folder = db.query(Folder).filter(Folder.id == scope_row.folder_id).first()
+    return ScopeFolderResponse(
+        folder_id=folder.id,
+        name=folder.name,
+        path=folder.path,
+        is_root=folder.is_root,
+        created_at=scope_row.created_at.isoformat() if scope_row.created_at else None,
+    )
+
+
+@router.delete("/{user_id}/scopes/{folder_id}")
+async def remove_user_scope(
+    user_id: int,
+    folder_id: UUID,
+    current_user: PublicUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Remove a folder grant from a user.
+
+    Admin only.
+    """
+    removed = controllers.user.remove_user_scope(db, user_id, folder_id)
+    if not removed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Scope grant not found",
+        )
+    return {"removed": True, "user_id": user_id, "folder_id": str(folder_id)}

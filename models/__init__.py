@@ -23,6 +23,7 @@ from models.settings import Setting
 from models.feed_item import FeedItem
 from models.repo_ssh_key import RepoSshKey
 from models.profile import Profile
+from models.user_folder_scope import UserFolderScope
 
 __all__ = [
     "Base",
@@ -38,4 +39,5 @@ __all__ = [
     "FeedItem",
     "RepoSshKey",
     "Profile",
+    "UserFolderScope",
 ]

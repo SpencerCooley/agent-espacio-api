@@ -1,48 +1,55 @@
 """
 API key controller - create API key.
 """
-from typing import Tuple
+from typing import Optional, Tuple
 
 from sqlalchemy.orm import Session
 
 from models.api_key import APIKey
+from models.user import User
 from utils.token import generate_api_key
 from utils.api_key import hash_api_key, get_api_key_prefix
 
 
-def create_api_key(db: Session, name: str) -> Tuple[APIKey, str]:
+def create_api_key(
+    db: Session,
+    name: str,
+    user_id: Optional[int] = None,
+) -> Tuple[APIKey, str]:
     """
     Create a new API key for agent authentication.
     
     The full key is shown only once on creation. Only the hash is stored.
+
+    Optional user_id assigns the key's permission source (inherits that user's
+    folder grants). None = global unrestricted key.
     
     Args:
         db: Database session
         name: Human-readable name for the key
+        user_id: Optional user whose grants the key inherits
         
     Returns:
         Tuple of (APIKey object, plain API key string)
         
-    Example:
-        >>> api_key, plain_key = create_api_key(db, "laptop-main")
-        >>> print(plain_key)  # agent-esp-a3f7b2d8...
-        >>> # Store plain_key securely - it won't be shown again!
+    Raises:
+        ValueError: If user_id is set but user does not exist
     """
-    # Generate the API key
+    if user_id is not None:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise ValueError("User not found for API key assignment")
+
     plain_key = generate_api_key()
-    
-    # Hash for storage
     key_hash = hash_api_key(plain_key)
-    
-    # Get prefix for display
     prefix = get_api_key_prefix(plain_key)
     
-    # Create database record
     api_key = APIKey(
         name=name,
         key_hash=key_hash,
         prefix=prefix,
-        is_active=True
+        is_active=True,
+        user_id=user_id,
     )
     
     db.add(api_key)

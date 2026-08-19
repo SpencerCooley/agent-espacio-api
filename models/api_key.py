@@ -3,7 +3,8 @@ API Key SQLAlchemy model for agent authentication.
 """
 from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, DateTime, Boolean
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
 
 from models.base import Base
 
@@ -11,12 +12,14 @@ from models.base import Base
 class APIKey(Base):
     """
     API key for AI agent authentication.
-    
-    API keys are system-wide (not user-specific) and use soft delete via is_active flag.
-    The full key is shown only once on creation - only the hash is stored.
-    
+
+    Identity is always "agent" (actor.type stays agent; created_by_id stays null).
+    Optional user_id is a permission source only:
+    - user_id set → inherits that user's folder grants
+    - user_id null → global (unrestricted) key
+
+    Soft delete via is_active. Full key shown only once on creation.
     Format: agent-esp-{32-char-hex}
-    Example: agent-esp-a3f7b2d8e9c1...
     """
     __tablename__ = "api_keys"
     
@@ -27,8 +30,14 @@ class APIKey(Base):
     is_active = Column(Boolean, default=True, nullable=False)  # Soft delete flag
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_used_at = Column(DateTime, nullable=True)  # Track last usage
-    
-    # Note: No user_id - API keys are system-wide, not user-owned
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    user = relationship("User", back_populates="api_keys")
     
     def __repr__(self):
-        return f"<APIKey(id={self.id}, name={self.name}, prefix={self.prefix}, is_active={self.is_active})>"
+        return f"<APIKey(id={self.id}, name={self.name}, prefix={self.prefix}, is_active={self.is_active}, user_id={self.user_id})>"

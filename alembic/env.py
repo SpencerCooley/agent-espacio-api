@@ -26,6 +26,11 @@ from models.asset import Asset
 from models.folder import Folder 
 from models.artifact import Artifact
 from models.settings import Setting
+from models.user_folder_scope import UserFolderScope  # noqa: F401
+from models.feed_item import FeedItem  # noqa: F401
+from models.theme import Theme  # noqa: F401
+from models.profile import Profile  # noqa: F401
+from models.repo_ssh_key import RepoSshKey  # noqa: F401
 
 # this is the Alembic Config object
 config = context.config

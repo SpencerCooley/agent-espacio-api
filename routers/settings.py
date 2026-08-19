@@ -9,8 +9,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from dependencies.dependencies import get_db, require_auth
+from dependencies.dependencies import get_db, require_admin
 from controllers.settings import get_all_settings, get_public_theme, set_public_theme, get_branding, set_branding, get_public_branding
+from models.user import User
 
 router = APIRouter(
     prefix="/settings",
@@ -61,12 +62,12 @@ async def get_public_theme_endpoint(
 async def update_public_theme(
     data: PublicThemeUpdate,
     db: Session = Depends(get_db),
-    user = Depends(require_auth)
+    user: User = Depends(require_admin),
 ):
     """
     Update the public theme.
 
-    Any authenticated user can update this.
+    Admin only.
     """
     if data.mode not in ('light', 'dark'):
         raise HTTPException(
@@ -101,12 +102,12 @@ async def get_branding_endpoint(
 async def update_branding(
     data: BrandingUpdate,
     db: Session = Depends(get_db),
-    user = Depends(require_auth)
+    user: User = Depends(require_admin),
 ):
     """
     Update the branding settings.
 
-    Any authenticated user can update this.
+    Admin only.
     """
     if data.background_style not in ('cover', 'tile'):
         raise HTTPException(

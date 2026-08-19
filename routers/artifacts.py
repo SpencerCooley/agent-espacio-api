@@ -15,8 +15,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
-from dependencies.dependencies import get_db, require_auth
+from dependencies.dependencies import get_db, require_auth, get_scope
 from models.user import User
+from services.permissions import (
+    Scope,
+    assert_folder_id_in_scope,
+    assert_can_read_artifact,
+    assert_artifact_in_scope,
+    get_scope_folder_ids,
+)
 from types_definitions.artifact import (
     CreateArtifactRequest,
     UpdateArtifactRequest,
@@ -46,6 +53,7 @@ async def list_artifacts(
     folder_id: UUID = None,
     type: str = None,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -53,12 +61,21 @@ async def list_artifacts(
 
     - **folder_id**: Filter by parent folder
     - **type**: Filter by artifact type key (e.g., "note")
+
+    Results are always filtered to the principal's scope.
     """
+    if folder_id is not None:
+        assert_folder_id_in_scope(db, scope, folder_id)
+
     artifacts = controllers.artifact.list_artifacts(
         db=db,
         folder_id=folder_id,
         type=type
     )
+
+    if not scope.is_unrestricted:
+        scope_ids = get_scope_folder_ids(db, scope) or set()
+        artifacts = [a for a in artifacts if a.folder_id in scope_ids]
 
     return ArtifactListResponse(artifacts=artifacts, total=len(artifacts))
 
@@ -67,6 +84,7 @@ async def list_artifacts(
 async def create_artifact(
     request: CreateArtifactRequest,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -78,6 +96,10 @@ async def create_artifact(
     - **content**: Artifact content JSONB (structure depends on type)
     - **folder_id**: Parent folder ID
     """
+    assert_folder_id_in_scope(
+        db, scope, request.folder_id, detail="Parent folder is out of scope"
+    )
+
     try:
         artifact = controllers.artifact.create_artifact(
             db=db,
@@ -88,7 +110,11 @@ async def create_artifact(
             created_by=current_user,
             description=request.description,
         )
-        actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+        actor = {
+            "type": "user" if current_user else "agent",
+            "id": str(current_user.id) if current_user else None,
+            "name": current_user.email if current_user else None,
+        }
         folder_id = str(request.folder_id) if request.folder_id else "00000000-0000-0000-0000-000000000001"
         publish_event(
             event_type="artifact.created",
@@ -153,10 +179,13 @@ async def get_artifact_type_docs(
 async def get_artifact(
     artifact_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
     Get artifact metadata by ID.
+
+    Read is allowed if in-scope or referenced by an in-scope parent artifact.
     """
     artifact = controllers.artifact.get_artifact(db, artifact_id)
 
@@ -166,6 +195,7 @@ async def get_artifact(
             detail="Artifact not found"
         )
 
+    assert_can_read_artifact(db, scope, artifact)
     return artifact
 
 
@@ -174,12 +204,14 @@ async def update_artifact(
     artifact_id: UUID,
     request: UpdateArtifactRequest,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
     Update an artifact.
 
     All fields are optional. Only provided fields will be updated.
+    Move requires both source and destination in scope.
     """
     artifact = controllers.artifact.get_artifact(db, artifact_id)
 
@@ -187,6 +219,13 @@ async def update_artifact(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Artifact not found"
+        )
+
+    assert_artifact_in_scope(db, scope, artifact)
+
+    if request.folder_id is not None:
+        assert_folder_id_in_scope(
+            db, scope, request.folder_id, detail="Destination folder is out of scope"
         )
 
     try:
@@ -205,7 +244,11 @@ async def update_artifact(
         
         # Emit move event if folder changed
         if request.folder_id is not None and new_folder_id != original_folder_id:
-            actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+            actor = {
+                "type": "user" if current_user else "agent",
+                "id": str(current_user.id) if current_user else None,
+                "name": current_user.email if current_user else None,
+            }
             publish_event(
                 event_type="artifact.moved",
                 folder_id=new_folder_id,
@@ -226,12 +269,13 @@ async def update_artifact(
 async def delete_artifact(
     artifact_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
     Delete an artifact.
 
-    This action cannot be undone.
+    This action cannot be undone. Requires the artifact itself to be in-scope.
     """
     artifact = controllers.artifact.get_artifact(db, artifact_id)
 
@@ -241,11 +285,17 @@ async def delete_artifact(
             detail="Artifact not found"
         )
 
+    assert_artifact_in_scope(db, scope, artifact)
+
     folder_id = str(artifact.folder_id) if artifact.folder_id else "00000000-0000-0000-0000-000000000001"
     artifact_name = artifact.name
     controllers.artifact.delete_artifact(db, artifact)
 
-    actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+    actor = {
+        "type": "user" if current_user else "agent",
+        "id": str(current_user.id) if current_user else None,
+        "name": current_user.email if current_user else None,
+    }
     publish_event(
         event_type="artifact.deleted",
         folder_id=folder_id,
@@ -268,6 +318,7 @@ async def delete_artifact(
 async def share_artifact(
     artifact_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -282,6 +333,8 @@ async def share_artifact(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Artifact not found"
         )
+
+    assert_artifact_in_scope(db, scope, artifact)
     
     updated = controllers.artifact.share.toggle_artifact_share(db, artifact)
     return updated
@@ -291,6 +344,7 @@ async def share_artifact(
 async def preview_artifact(
     artifact_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -307,6 +361,8 @@ async def preview_artifact(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Artifact not found"
         )
+
+    assert_can_read_artifact(db, scope, artifact)
     
     # Get public theme for accurate preview rendering
     public_theme_pref = get_public_theme(db)
@@ -345,6 +401,7 @@ async def preview_artifact(
 async def get_composition(
     artifact_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -352,6 +409,9 @@ async def get_composition(
 
     Returns the composer artifact and its sections, with each section's
     referenced artifact fully resolved in a single batch query.
+
+    Parent must be readable; referenced out-of-scope items are still returned
+    (embed read exception) so editors can see and remove them.
     """
     artifact = controllers.artifact.get_artifact(db, artifact_id)
 
@@ -360,6 +420,8 @@ async def get_composition(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Artifact not found"
         )
+
+    assert_can_read_artifact(db, scope, artifact)
 
     if artifact.type != "composer":
         raise HTTPException(

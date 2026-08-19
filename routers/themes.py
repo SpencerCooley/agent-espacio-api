@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from dependencies.dependencies import get_db, require_auth
+from dependencies.dependencies import get_db, require_admin
 from controllers.themes import get_all_themes, get_theme_by_id, create_theme, update_theme, delete_theme
+from models.user import User
 
 router = APIRouter(
     prefix="/themes",
@@ -87,12 +88,12 @@ async def get_theme(
 async def create_new_theme(
     data: CreateThemeRequest,
     db: Session = Depends(get_db),
-    user = Depends(require_auth)
+    user: User = Depends(require_admin),
 ):
     """
     Create a new theme.
 
-    Requires authentication.
+    Admin only.
     """
     theme = create_theme(
         db,
@@ -113,12 +114,12 @@ async def update_existing_theme(
     theme_id: str,
     data: UpdateThemeRequest,
     db: Session = Depends(get_db),
-    user = Depends(require_auth)
+    user: User = Depends(require_admin),
 ):
     """
     Update an existing theme.
 
-    Requires authentication.
+    Admin only.
     """
     theme = update_theme(
         db,
@@ -144,12 +145,12 @@ async def update_existing_theme(
 async def delete_existing_theme(
     theme_id: str,
     db: Session = Depends(get_db),
-    user = Depends(require_auth)
+    user: User = Depends(require_admin),
 ):
     """
     Delete a theme.
 
-    Requires authentication.
+    Admin only.
     """
     deleted = delete_theme(db, theme_id)
     if not deleted:

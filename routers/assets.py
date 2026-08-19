@@ -16,8 +16,17 @@ from fastapi.responses import StreamingResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 from uuid import UUID
 
-from dependencies.dependencies import get_db, require_auth
+from dependencies.dependencies import get_db, require_auth, get_scope
 from models.user import User
+from services.permissions import (
+    Scope,
+    AuthContext,
+    assert_folder_id_in_scope,
+    assert_can_read_asset,
+    assert_asset_in_scope,
+    get_scope_folder_ids,
+    resolve_scope,
+)
 from types_definitions.asset import (
     AssetResponse,
     AssetListResponse,
@@ -55,6 +64,7 @@ async def list_assets(
     folder_id: UUID = None,
     mime_type: str = None,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -62,12 +72,21 @@ async def list_assets(
     
     - **folder_id**: Filter by parent folder
     - **mime_type**: Filter by MIME type (e.g., "image/" for all images)
+
+    Results are always filtered to the principal's scope.
     """
+    if folder_id is not None:
+        assert_folder_id_in_scope(db, scope, folder_id)
+
     assets = controllers.asset.list_assets(
         db=db,
         folder_id=folder_id,
         mime_type_prefix=mime_type
     )
+
+    if not scope.is_unrestricted:
+        scope_ids = get_scope_folder_ids(db, scope) or set()
+        assets = [a for a in assets if a.folder_id in scope_ids]
     
     return AssetListResponse(assets=assets, total=len(assets))
 
@@ -77,6 +96,7 @@ def upload_asset(
     file: UploadFile = File(..., description="File to upload"),
     folder_id: UUID = Form(None, description="Parent folder ID (optional)"),
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -84,9 +104,23 @@ def upload_asset(
     
     - **file**: The file to upload (max 1000MB)
     - **folder_id**: Optional parent folder ID (omit for root/My Drive)
-    
-    Supported file types: Images (.png, .jpg, .gif), Markdown (.md), and more.
+
+    Editors must upload into an in-scope folder (root upload denied).
     """
+    target_folder_id = folder_id
+    if target_folder_id is None:
+        root = controllers.folder.get_root_folder(db)
+        if not root:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Root folder not found",
+            )
+        target_folder_id = root.id
+
+    assert_folder_id_in_scope(
+        db, scope, target_folder_id, detail="Upload folder is out of scope"
+    )
+
     # Validate file size
     file.file.seek(0, 2)  # Seek to end
     file_size = file.file.tell()
@@ -114,11 +148,15 @@ def upload_asset(
             name=file.filename,
             temp_file_path=temp_path,
             created_by=current_user,
-            folder_id=folder_id
+            folder_id=target_folder_id
         )
         
-        actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
-        parent_id = str(folder_id) if folder_id else "00000000-0000-0000-0000-000000000001"
+        actor = {
+            "type": "user" if current_user else "agent",
+            "id": str(current_user.id) if current_user else None,
+            "name": current_user.email if current_user else None,
+        }
+        parent_id = str(target_folder_id)
         publish_event(
             event_type="asset.created",
             folder_id=parent_id,
@@ -160,10 +198,14 @@ def upload_asset(
 async def get_asset(
     asset_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
     Get asset metadata by ID.
+
+    Read is allowed if the asset is in-scope, or referenced by an in-scope
+    artifact (embed exception for galleries/composers/notes/maps).
     """
     asset = controllers.asset.get_asset(db, asset_id)
     
@@ -172,7 +214,8 @@ async def get_asset(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Asset not found"
         )
-    
+
+    assert_can_read_asset(db, scope, asset)
     return asset
 
 
@@ -238,16 +281,20 @@ async def create_signed_url(
     asset_id: UUID,
     size: int = None,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
     Generate a time-bound signed URL for downloading an asset.
 
     The signed URL is valid for 10 minutes and can be used without authentication.
+    Requires read access to the asset (in-scope or embed reference).
     """
     asset = controllers.asset.get_asset(db, asset_id)
     if not asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
+
+    assert_can_read_asset(db, scope, asset)
 
     from controllers.asset.signed_url import generate_signed_url
     signed_url = generate_signed_url(asset_id, size=size)
@@ -289,32 +336,41 @@ async def download_asset(
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     x_agent_key = request.headers.get("X-Agent-Key")
 
-    from dependencies.dependencies import _validate_auth, hash_api_key
+    from dependencies.dependencies import hash_api_key
     from models.api_key import APIKey
-    user = _validate_auth(db, token or None, x_agent_key or None)
+    from models.token import Token
+    from datetime import datetime as _dt
 
-    # _validate_auth returns User for valid Bearer tokens, None for valid API keys,
-    # and None for invalid/missing auth. We must distinguish valid API key from invalid.
-    if user is None:
-        if x_agent_key:
-            # API key was provided — verify it independently
-            key_hash = hash_api_key(x_agent_key)
-            api_key = db.query(APIKey).filter(
-                APIKey.key_hash == key_hash,
-                APIKey.is_active == True
-            ).first()
-            if not api_key:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid API key"
-                )
-            # Valid API key — proceed
+    ctx = AuthContext()
+    if token:
+        db_token = db.query(Token).filter(Token.token == token).first()
+        if db_token and db_token.is_active:
+            if not db_token.expires_at or db_token.expires_at >= _dt.utcnow():
+                ctx = AuthContext(user=db_token.user, api_key=None)
+
+    if ctx.user is None and x_agent_key:
+        key_hash = hash_api_key(x_agent_key)
+        api_key = db.query(APIKey).filter(
+            APIKey.key_hash == key_hash,
+            APIKey.is_active == True
+        ).first()
+        if api_key:
+            ctx = AuthContext(user=None, api_key=api_key)
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required",
-                headers={"WWW-Authenticate": "Bearer, X-Agent-Key"}
+                detail="Invalid API key"
             )
+
+    if ctx.user is None and ctx.api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer, X-Agent-Key"}
+        )
+
+    scope = resolve_scope(db, ctx)
+    assert_can_read_asset(db, scope, asset)
 
     return _serve_asset_file(asset, request, size)
 
@@ -323,6 +379,7 @@ async def download_asset(
 async def get_asset_content(
     asset_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -339,6 +396,8 @@ async def get_asset_content(
             detail="Asset not found"
         )
 
+    assert_can_read_asset(db, scope, asset)
+
     try:
         content = read_text_file(asset.storage_filename)
         return PlainTextResponse(content, media_type=asset.mime_type)
@@ -354,6 +413,7 @@ async def update_asset(
     asset_id: UUID,
     request: UpdateAssetRequest,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -361,6 +421,8 @@ async def update_asset(
     
     - **name**: New filename (optional)
     - **folder_id**: New parent folder ID (optional, for moving)
+
+    Move requires both source and destination in scope.
     """
     asset = controllers.asset.get_asset(db, asset_id)
     
@@ -368,6 +430,13 @@ async def update_asset(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Asset not found"
+        )
+
+    assert_asset_in_scope(db, scope, asset)
+
+    if request.folder_id is not None:
+        assert_folder_id_in_scope(
+            db, scope, request.folder_id, detail="Destination folder is out of scope"
         )
     
     try:
@@ -383,7 +452,11 @@ async def update_asset(
         
         # Emit move event if folder changed
         if request.folder_id is not None and new_folder_id != original_folder_id:
-            actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+            actor = {
+                "type": "user" if current_user else "agent",
+                "id": str(current_user.id) if current_user else None,
+                "name": current_user.email if current_user else None,
+            }
             publish_event(
                 event_type="asset.moved",
                 folder_id=new_folder_id,
@@ -404,12 +477,14 @@ async def update_asset(
 async def delete_asset(
     asset_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
     Delete an asset and its file from storage.
     
-    This action cannot be undone.
+    This action cannot be undone. Requires the asset itself to be in-scope
+    (cannot delete out-of-scope embeds).
     """
     asset = controllers.asset.get_asset(db, asset_id)
     
@@ -418,11 +493,17 @@ async def delete_asset(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Asset not found"
         )
+
+    assert_asset_in_scope(db, scope, asset)
     
     folder_id = str(asset.folder_id) if asset.folder_id else "00000000-0000-0000-0000-000000000001"
     file_deleted = controllers.asset.delete_asset(db, asset)
     
-    actor = {"type": "user", "id": str(current_user.id) if current_user else None, "name": current_user.email if current_user else None}
+    actor = {
+        "type": "user" if current_user else "agent",
+        "id": str(current_user.id) if current_user else None,
+        "name": current_user.email if current_user else None,
+    }
     publish_event(
         event_type="asset.deleted",
         folder_id=folder_id,
@@ -448,6 +529,7 @@ async def delete_asset(
 async def share_asset(
     asset_id: UUID,
     current_user: Optional[User] = Depends(require_auth),
+    scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
 ):
     """
@@ -462,6 +544,8 @@ async def share_asset(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Asset not found"
         )
+
+    assert_asset_in_scope(db, scope, asset)
     
     updated = controllers.asset.share.toggle_asset_share(db, asset)
     return updated

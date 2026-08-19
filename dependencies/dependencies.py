@@ -20,6 +20,7 @@ from models.user import User
 from models.token import Token
 from models.api_key import APIKey
 from utils.api_key import hash_api_key
+from services.permissions import AuthContext, Scope, resolve_scope
 
 
 # ============================================================================
@@ -307,45 +308,58 @@ def _validate_auth(db: Session, token: Optional[str], x_agent_key: Optional[str]
     return None
 
 
-def require_auth(
+def get_auth_context(
     token: Optional[str] = Depends(oauth2_scheme_optional),
     x_agent_key: Optional[str] = Header(None, alias="X-Agent-Key"),
-    db: Session = Depends(get_db)
-) -> Optional[User]:
+    db: Session = Depends(get_db),
+) -> AuthContext:
     """
     Unified authentication - accepts Bearer token or X-Agent-Key.
-    
-    Args:
-        token: Optional Bearer token from Authorization header
-        x_agent_key: Optional API key from X-Agent-Key header
-        db: Database session
-        
-    Returns:
-        Optional[User]: Authenticated user if using Bearer token, None if using API key
-        
-    Raises:
-        HTTPException: 401 if neither auth method is valid
+
+    Returns AuthContext with either user (bearer) or api_key (agent).
+    Raises 401 if neither is valid.
     """
-    user = _validate_auth(db, token, x_agent_key)
-    if user is not None:
-        return user
-    
-    # Check if API key was valid (returns None but no exception)
+    if token:
+        db_token = db.query(Token).filter(Token.token == token).first()
+        if db_token and db_token.is_active:
+            if not db_token.expires_at or db_token.expires_at >= datetime.utcnow():
+                return AuthContext(user=db_token.user, api_key=None)
+
     if x_agent_key:
         key_hash = hash_api_key(x_agent_key)
         api_key = db.query(APIKey).filter(
             APIKey.key_hash == key_hash,
-            APIKey.is_active == True
+            APIKey.is_active == True,
         ).first()
         if api_key:
-            return None
-    
-    # Neither auth method succeeded
+            return AuthContext(user=None, api_key=api_key)
+
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid authentication",
-        headers={"WWW-Authenticate": "Bearer, X-Agent-Key"}
+        headers={"WWW-Authenticate": "Bearer, X-Agent-Key"},
     )
+
+
+def require_auth(
+    ctx: AuthContext = Depends(get_auth_context),
+) -> Optional[User]:
+    """
+    Unified authentication - accepts Bearer token or X-Agent-Key.
+
+    Returns authenticated User for Bearer tokens, None for API keys
+    (agent identity). Prefer get_auth_context / get_scope when you need
+    the full principal or folder scope.
+    """
+    return ctx.user
+
+
+def get_scope(
+    ctx: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+) -> Scope:
+    """Resolve folder scope for the authenticated principal."""
+    return resolve_scope(db, ctx)
 
 
 def get_ws_auth(token: Optional[str] = None, db: Session = None) -> Optional[User]:

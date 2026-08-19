@@ -11,6 +11,10 @@ class CreateAPIKeyRequest(BaseModel):
     """Request to create a new API key."""
     name: str = Field(..., min_length=1, max_length=100, 
                        description="Name for the API key (e.g., 'laptop-main', 'openclaw-node-1')")
+    user_id: Optional[int] = Field(
+        None,
+        description="Optional user whose folder grants this key inherits. Null = global key.",
+    )
 
 
 class APIKeyResponse(BaseModel):
@@ -22,6 +26,7 @@ class APIKeyResponse(BaseModel):
     created_at: datetime = Field(..., description="Creation date")
     last_used_at: Optional[datetime] = Field(None, description="Last usage date")
     is_active: bool = Field(..., description="Whether the key is active")
+    user_id: Optional[int] = Field(None, description="Assigned user (permission source); null = global")
     
     class Config:
         from_attributes = True

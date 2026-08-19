@@ -62,6 +62,11 @@ class Folder(Base):
         lazy="dynamic"
     )
     created_by = relationship("User", back_populates="folders")
+    user_scopes = relationship(
+        "UserFolderScope",
+        back_populates="folder",
+        cascade="all, delete-orphan",
+    )
     
     # Indexes for performance
     __table_args__ = (
