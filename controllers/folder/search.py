@@ -72,11 +72,9 @@ def search_within_folder_ids(
         return [], [], []
 
     if folder_ids is None:
-        # Unrestricted: all non-root folders
-        all_ids = [
-            row.id
-            for row in db.query(Folder.id).filter(Folder.is_root == False).all()
-        ]
+        # Unrestricted: entire tree including root (My Drive) so items
+        # living directly under root are searchable.
+        all_ids = [row.id for row in db.query(Folder.id).all()]
         return _search_within_folder_ids(db, all_ids, query, limit)
 
     return _search_within_folder_ids(db, list(folder_ids), query, limit)

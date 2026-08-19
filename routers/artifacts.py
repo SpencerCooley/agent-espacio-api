@@ -22,6 +22,7 @@ from services.permissions import (
     assert_folder_id_in_scope,
     assert_can_read_artifact,
     assert_artifact_in_scope,
+    artifact_in_scope,
     get_scope_folder_ids,
 )
 from types_definitions.artifact import (
@@ -196,7 +197,9 @@ async def get_artifact(
         )
 
     assert_can_read_artifact(db, scope, artifact)
-    return artifact
+    response = ArtifactResponse.model_validate(artifact)
+    response.in_scope = artifact_in_scope(db, scope, artifact)
+    return response
 
 
 @router.put("/{artifact_id}", response_model=ArtifactResponse)
@@ -400,6 +403,7 @@ async def preview_artifact(
 @router.get("/{artifact_id}/composition", response_model=CompositionResponse)
 async def get_composition(
     artifact_id: UUID,
+    signed: bool = False,
     current_user: Optional[User] = Depends(require_auth),
     scope: Scope = Depends(get_scope),
     db: Session = Depends(get_db)
@@ -412,6 +416,10 @@ async def get_composition(
 
     Parent must be readable; referenced out-of-scope items are still returned
     (embed read exception) so editors can see and remove them.
+
+    Pass signed=true for preview mode: nested asset references get time-bound
+    signed URLs so images load even when assets live outside the caller's scope
+    (same visual result as the public page).
     """
     artifact = controllers.artifact.get_artifact(db, artifact_id)
 
@@ -429,7 +437,7 @@ async def get_composition(
             detail="Artifact is not a composition"
         )
 
-    result = controllers.artifact.resolve_composition(db, artifact)
+    result = controllers.artifact.resolve_composition(db, artifact, signed=signed)
 
     return CompositionResponse(
         composer=result["composer"],

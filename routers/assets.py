@@ -24,6 +24,7 @@ from services.permissions import (
     assert_folder_id_in_scope,
     assert_can_read_asset,
     assert_asset_in_scope,
+    asset_in_scope,
     get_scope_folder_ids,
     resolve_scope,
 )
@@ -216,7 +217,9 @@ async def get_asset(
         )
 
     assert_can_read_asset(db, scope, asset)
-    return asset
+    response = AssetResponse.model_validate(asset)
+    response.in_scope = asset_in_scope(db, scope, asset)
+    return response
 
 
 def _serve_asset_file(asset, request: Request, size: int = None):

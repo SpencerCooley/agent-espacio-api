@@ -29,7 +29,12 @@ class AssetResponse(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
     created_by_id: int | None = Field(None, description="ID of user who uploaded the asset")
-    
+    in_scope: Optional[bool] = Field(
+        None,
+        description="True if the asset's folder is in the caller's scope (strict). "
+        "False when readable only via embed reference. Null when not computed.",
+    )
+
     class Config:
         from_attributes = True
 

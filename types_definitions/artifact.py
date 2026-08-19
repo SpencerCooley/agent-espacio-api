@@ -43,6 +43,11 @@ class ArtifactResponse(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
     created_by_id: Optional[int] = Field(None, description="ID of user who created the artifact")
+    in_scope: Optional[bool] = Field(
+        None,
+        description="True if the artifact's folder is in the caller's scope (strict). "
+        "False when readable only via embed reference. Null when not computed.",
+    )
 
     class Config:
         from_attributes = True

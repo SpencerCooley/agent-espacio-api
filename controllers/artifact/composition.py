@@ -183,7 +183,11 @@ def _serialize_composer(composer: Artifact, include_internal: bool = True, publi
     return d
 
 
-def resolve_composition(db: Session, composer: Artifact) -> Dict[str, Any]:
+def resolve_composition(
+    db: Session,
+    composer: Artifact,
+    signed: bool = False,
+) -> Dict[str, Any]:
     """
     Resolve a composer artifact's sections into full artifact/asset data.
 
@@ -193,10 +197,16 @@ def resolve_composition(db: Session, composer: Artifact) -> Dict[str, Any]:
     Args:
         db: Database session
         composer: The composer artifact
+        signed: When True, enrich each section artifact's content with
+            time-bound signed asset URLs (for preview mode — images load
+            even when nested assets are outside the caller's folder scope).
 
     Returns:
         Dict with 'composer' (dict) and 'sections' (list of resolved sections with item as dict)
     """
+    import copy
+    from controllers.asset.signed_url import enrich_content_with_signed_urls
+
     content = composer.content or {}
     sections_data = content.get("sections", [])
 
@@ -245,8 +255,15 @@ def resolve_composition(db: Session, composer: Artifact) -> Dict[str, Any]:
         caption = section.get("caption")
         item = (artifacts.get(str(item_id)) or assets.get(str(item_id))) if item_id else None
 
+        item_dict = _serialize_item(item)
+        if signed and item_dict and isinstance(item, Artifact) and item_dict.get("content"):
+            item_dict["content"] = enrich_content_with_signed_urls(
+                copy.deepcopy(item_dict["content"]),
+                expiry_seconds=3600,
+            )
+
         resolved_sections.append({
-            "item": _serialize_item(item),
+            "item": item_dict,
             "caption": caption,
             "artifact_id": str(item_id) if item_id else None,
         })
