@@ -18,14 +18,17 @@ class APIKey(Base):
     - user_id set → inherits that user's folder grants
     - user_id null → global (unrestricted) key
 
-    Soft delete via is_active. Full key shown only once on creation.
+    Soft delete via is_active. The full key is stored encrypted at rest
+    (Fernet) and can be retrieved by admins and the assigned user; legacy
+    rows have key_encrypted=NULL and are authenticate-only.
     Format: agent-esp-{32-char-hex}
     """
     __tablename__ = "api_keys"
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)  # Human-readable name
-    key_hash = Column(String, unique=True, index=True, nullable=False)  # SHA-256 hash
+    key_hash = Column(String, unique=True, index=True, nullable=False)  # SHA-256 hash, used for auth lookup
+    key_encrypted = Column(String, nullable=True)  # Fernet-encrypted full key; NULL for pre-encryption keys
     prefix = Column(String, index=True, nullable=False)  # First 16 chars for display
     is_active = Column(Boolean, default=True, nullable=False)  # Soft delete flag
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

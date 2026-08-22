@@ -21,7 +21,11 @@ class APIKeyResponse(BaseModel):
     """API key information."""
     id: int = Field(..., description="API key ID")
     name: str = Field(..., description="API key name")
-    key: Optional[str] = Field(None, description="The actual API key (only shown once on creation)")
+    key: Optional[str] = Field(
+        None,
+        description="Full API key, decrypted server-side. Null for keys created before encrypted storage. "
+                    "Returned to admins on list and to users on /api-keys/me.",
+    )
     prefix: str = Field(..., description="First 16 characters of the key for identification")
     created_at: datetime = Field(..., description="Creation date")
     last_used_at: Optional[datetime] = Field(None, description="Last usage date")

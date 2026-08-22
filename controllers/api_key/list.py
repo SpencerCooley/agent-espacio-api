@@ -34,6 +34,27 @@ def list_api_keys(
     return query.order_by(APIKey.created_at.desc()).offset(skip).limit(limit).all()
 
 
+def list_api_keys_for_user(db: Session, user_id: int) -> List[APIKey]:
+    """
+    List active API keys assigned to a specific user.
+
+    Used by GET /api-keys/me so users can retrieve their own keys.
+
+    Args:
+        db: Database session
+        user_id: User whose assigned keys to list
+
+    Returns:
+        List of active APIKey objects (newest first)
+    """
+    return (
+        db.query(APIKey)
+        .filter(APIKey.user_id == user_id, APIKey.is_active == True)
+        .order_by(APIKey.created_at.desc())
+        .all()
+    )
+
+
 def count_api_keys(db: Session, include_inactive: bool = False) -> int:
     """
     Count total number of API keys.

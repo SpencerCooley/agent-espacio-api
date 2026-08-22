@@ -9,6 +9,7 @@ from models.api_key import APIKey
 from models.user import User
 from utils.token import generate_api_key
 from utils.api_key import hash_api_key, get_api_key_prefix
+from utils.crypto import encrypt_api_key
 
 
 def create_api_key(
@@ -18,22 +19,24 @@ def create_api_key(
 ) -> Tuple[APIKey, str]:
     """
     Create a new API key for agent authentication.
-    
-    The full key is shown only once on creation. Only the hash is stored.
+
+    Stores the SHA-256 hash (for auth lookup) plus the Fernet-encrypted full
+    key (so admins and the assigned user can retrieve it later).
 
     Optional user_id assigns the key's permission source (inherits that user's
     folder grants). None = global unrestricted key.
-    
+
     Args:
         db: Database session
         name: Human-readable name for the key
         user_id: Optional user whose grants the key inherits
-        
+
     Returns:
         Tuple of (APIKey object, plain API key string)
-        
+
     Raises:
         ValueError: If user_id is set but user does not exist
+        RuntimeError: If SECRET_KEY is not configured
     """
     if user_id is not None:
         user = db.query(User).filter(User.id == user_id).first()
@@ -42,11 +45,13 @@ def create_api_key(
 
     plain_key = generate_api_key()
     key_hash = hash_api_key(plain_key)
+    key_encrypted = encrypt_api_key(plain_key)
     prefix = get_api_key_prefix(plain_key)
-    
+
     api_key = APIKey(
         name=name,
         key_hash=key_hash,
+        key_encrypted=key_encrypted,
         prefix=prefix,
         is_active=True,
         user_id=user_id,
