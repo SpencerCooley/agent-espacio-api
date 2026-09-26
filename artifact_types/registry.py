@@ -2692,6 +2692,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "  - Writing a travel story that includes notes, maps, and photo galleries\n"
             "  - Creating a project report with workflows, notes, and data visualizations\n"
             "  - Building a portfolio that showcases different artifact types together\n"
+            "  - Sharing a clever prompt or snippet (as a markdown asset) with a discussion around it\n"
             "  - Any content that tells a story across multiple artifact types\n\n"
             "WHEN NOT TO USE:\n"
             "  - Simple single-artifact content (use the artifact's own type directly)\n"
@@ -2723,13 +2724,19 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
             "    - repo: Embedded static site or code preview\n"
             "    - video asset: Embedded video player with playback controls\n"
             "    - audio asset: Embedded audio player with playback controls\n"
-            "    - glb asset (model/gltf-binary): Embedded interactive 3D viewer (orbit, zoom, auto-rotate)\n\n"
+            "    - glb asset (model/gltf-binary): Embedded interactive 3D viewer (orbit, zoom, auto-rotate)\n"
+            "    - markdown asset (text/markdown): Rendered markdown in a card truncated to a fixed\n"
+            "      height with a fade, a copy button (copies the raw markdown source), and a\n"
+            "      'View full' button that expands the card inline. Great for sharing prompts/snippets.\n\n"
             "IMPORTANT RULES:\n"
             "  1. A composition CANNOT reference another composition. The API will reject nested composers.\n"
             "  2. If a referenced artifact is deleted, the section shows a placeholder.\n"
             "  3. Sub-artifacts referenced by a public composition are visible within that composition even if not individually public.\n"
-            "  4. Only video, audio, and GLB (model/gltf-binary) assets can be added as composer sections.\n"
-            "     Image assets should be embedded in a note or gallery instead.\n\n"
+            "  4. Only video, audio, GLB (model/gltf-binary), and markdown (text/markdown) assets can be added as\n"
+            "     composer sections. Image assets should be embedded in a note or gallery instead.\n"
+            "     NOTE: unlike artifacts, assets do NOT get derived public access from being in a composition —\n"
+            "     an asset section in a PUBLIC composition only renders if the asset itself is public\n"
+            "     (is_public or in a public folder); otherwise the section shows a 'not available' placeholder.\n\n"
             "WHEN CREATING A COMPOSITION VIA API:\n"
             '  POST /artifacts with body:\n'
             '  { "name": "My Story", "type": "composer", "folder_id": "...",\n'
@@ -2777,7 +2784,7 @@ ARTIFACT_TYPES: dict[str, dict[str, Any]] = {
                             "artifact_id": {
                                 "type": "string",
                                 "format": "uuid",
-                                "description": "UUID of the referenced artifact or media asset (cannot be another composer)"
+                                "description": "UUID of the referenced artifact or asset (video/audio/GLB/markdown assets allowed; cannot be another composer)"
                             },
                             "caption": {
                                 "type": "string",
