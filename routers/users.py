@@ -190,8 +190,8 @@ async def delete_user(
     
     Requires admin privileges. This operation cannot be undone.
     """
-    # Prevent self-deletion
-    if current_user.id == user_id:
+    # Prevent self-deletion (agent API keys have no user account to protect)
+    if current_user is not None and current_user.id == user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete your own account"

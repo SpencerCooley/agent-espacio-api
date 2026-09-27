@@ -43,6 +43,13 @@ Set the header:
 X-Agent-Key: ${AGENT_ESPACIO_KEY}
 ```
 
+API keys come in two privilege tiers (set when the key is created in the admin panel):
+- **Global key (no assigned user)** — a super key with admin-equivalent privilege.
+  It can do anything: content operations, theme management, site settings, feed
+  curation, even user and API-key management. Treat it like a root credential.
+- **User-assigned key** — inherits that user's folder grants AND role. If the
+  assigned user is an admin, the key can use admin endpoints; an editor's key cannot.
+
 ### Method B: User Bearer Token
 If acting on behalf of a logged-in user:
 ```
@@ -460,9 +467,21 @@ DELETE ${AGENT_ESPACIO_API}/themes/{theme_id}
 ### Themes
 - GET /themes — List all themes (public, no auth)
 - GET /themes/{id} — Get a single theme (public, no auth)
-- POST /themes — Create theme (auth required)
-- PUT /themes/{id} — Update theme (auth required)
-- DELETE /themes/{id} — Delete theme (auth required)
+- POST /themes — Create theme (admin user or agent API key)
+- PUT /themes/{id} — Update theme (admin user or agent API key)
+- DELETE /themes/{id} — Delete theme (admin user or agent API key)
+
+### Site Settings
+- PUT /settings/public-theme — Set the public site theme: { "theme_id": "<uuid>", "mode": "light"|"dark" } (admin user or agent API key)
+- PUT /settings/branding — Update logo/background branding (admin user or agent API key)
+
+### Curated Feed (admin user or agent API key)
+- GET /feed — Public feed (no auth)
+- GET /feed/items/{artifact_id} — Check if an artifact is in the feed
+- POST /feed/items?artifact_id=<uuid> — Add an artifact to the feed
+- DELETE /feed/items/{artifact_id} — Remove from the feed
+- PUT /feed/items/{artifact_id}/order?sort_order=<int> — Reorder
+- PUT /feed/items/{artifact_id}/featured?featured_level=<0-3> — Set/clear featured slot
 
 ---
 

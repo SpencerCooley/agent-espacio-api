@@ -67,7 +67,7 @@ async def update_public_theme(
     """
     Update the public theme.
 
-    Admin only.
+    Admin user or agent API key.
     """
     if data.mode not in ('light', 'dark'):
         raise HTTPException(
@@ -107,7 +107,7 @@ async def update_branding(
     """
     Update the branding settings.
 
-    Admin only.
+    Admin user or agent API key.
     """
     if data.background_style not in ('cover', 'tile'):
         raise HTTPException(

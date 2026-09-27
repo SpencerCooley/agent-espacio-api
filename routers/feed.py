@@ -51,7 +51,7 @@ async def get_feed_item_status(
     """
     Check if an artifact is in the curated feed.
 
-    Admin only. Returns the feed item if found, 404 otherwise.
+    Admin user or agent API key. Returns the feed item if found, 404 otherwise.
     """
     feed_item = db.query(FeedItem).filter(FeedItem.artifact_id == artifact_id).first()
     if not feed_item:
@@ -78,7 +78,7 @@ async def create_feed_item(
     """
     Add an artifact to the curated public feed.
 
-    Admin only. The artifact does not need to be public at the time of
+    Admin user or agent API key. The artifact does not need to be public at the time of
     adding — it simply won't appear in the public feed until it becomes public.
     """
     feed_item = add_to_feed(db, artifact_id)
@@ -100,7 +100,7 @@ async def delete_feed_item(
     """
     Remove an artifact from the curated public feed.
 
-    Admin only.
+    Admin user or agent API key.
     """
     removed = remove_from_feed(db, artifact_id)
     if not removed:
@@ -121,7 +121,7 @@ async def update_feed_item_order(
     """
     Update the sort order of a feed item.
 
-    Admin only.
+    Admin user or agent API key.
     """
     feed_item = reorder_feed_item(db, artifact_id, sort_order)
     if not feed_item:
@@ -150,7 +150,7 @@ async def update_feed_item_featured_level(
     occupied slot bumps the previous occupant to not featured (X). Passing 0
     or None clears the featured level.
 
-    Admin only.
+    Admin user or agent API key.
     """
     feed_item = set_featured_level(db, artifact_id, featured_level)
     if not feed_item:

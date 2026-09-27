@@ -228,29 +228,6 @@ def get_current_api_key_optional(
 # Permission Dependencies
 # ============================================================================
 
-def require_admin(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """
-    Require that the current user has admin role.
-    
-    Args:
-        current_user: Authenticated user from get_current_user
-        
-    Returns:
-        User: Admin user object
-        
-    Raises:
-        HTTPException: 403 if user is not admin
-    """
-    if current_user.role != RoleEnum.admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-    return current_user
-
-
 def require_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
@@ -360,6 +337,45 @@ def get_scope(
 ) -> Scope:
     """Resolve folder scope for the authenticated principal."""
     return resolve_scope(db, ctx)
+
+
+def require_admin(
+    ctx: AuthContext = Depends(get_auth_context),
+) -> Optional[User]:
+    """
+    Require admin privileges. Accepts Bearer token or X-Agent-Key.
+
+    Privilege model:
+    - Admin user (Bearer token) → allowed (returns the User)
+    - Global API key (user_id IS NULL) → allowed; the key is a super key
+      with admin-equivalent privilege (returns None — no user identity)
+    - User-assigned API key → inherits that user's role: allowed only if
+      the assigned user is an admin (returns None — identity stays agent)
+    - Non-admin Bearer token → 403
+    - No/invalid credentials → 401
+
+    Note: handlers using this dependency receive None for agent callers and
+    must not dereference the returned user without a None check.
+    """
+    # Agent API key path
+    if ctx.api_key is not None:
+        if ctx.api_key.user_id is None:
+            return None
+        if ctx.api_key.user is not None and ctx.api_key.user.role == RoleEnum.admin:
+            return None
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+
+    # Bearer token path (ctx.user is guaranteed non-null by get_auth_context)
+    if ctx.user is not None and ctx.user.role == RoleEnum.admin:
+        return ctx.user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Admin access required"
+    )
 
 
 def get_ws_auth(token: Optional[str] = None, db: Session = None) -> Optional[User]:

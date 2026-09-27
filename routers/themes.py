@@ -93,7 +93,7 @@ async def create_new_theme(
     """
     Create a new theme.
 
-    Admin only.
+    Admin user or agent API key.
     """
     theme = create_theme(
         db,
@@ -119,7 +119,7 @@ async def update_existing_theme(
     """
     Update an existing theme.
 
-    Admin only.
+    Admin user or agent API key.
     """
     theme = update_theme(
         db,
@@ -150,7 +150,7 @@ async def delete_existing_theme(
     """
     Delete a theme.
 
-    Admin only.
+    Admin user or agent API key.
     """
     deleted = delete_theme(db, theme_id)
     if not deleted:
