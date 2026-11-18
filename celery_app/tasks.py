@@ -75,7 +75,7 @@ def deploy_repo_task(self, artifact_id_str: str, ref: str = ""):
     from sqlalchemy.orm import sessionmaker
     from models.artifact import Artifact
 
-    db_url = os.environ.get("DATABASE_URL", "postgresql://agentespacio:agentespacio@db:5432/agentespacio_db")
+    db_url = os.environ.get("DATABASE_URL", "postgresql+psycopg2://agentespacio:agentespacio@db:5432/agentespacio_db")
     engine = create_engine(db_url)
     Session = sessionmaker(bind=engine)
     db = Session()
@@ -276,7 +276,7 @@ def generate_gallery_mosaic_task(self, artifact_id_str: str):
     from models.artifact import Artifact
     from models.asset import Asset
 
-    db_url = os.environ.get("DATABASE_URL", "postgresql://agentespacio:agentespacio@db:5432/agentespacio_db")
+    db_url = os.environ.get("DATABASE_URL", "postgresql+psycopg2://agentespacio:agentespacio@db:5432/agentespacio_db")
     engine = create_engine(db_url)
     Session = sessionmaker(bind=engine)
     db = Session()
@@ -353,7 +353,7 @@ def generate_thumbnails_task(self, asset_id_str: str, source_path: str, mime_typ
     from sqlalchemy.orm import sessionmaker
     from models.asset import Asset
 
-    db_url = os.environ.get("DATABASE_URL", "postgresql://agentespacio:agentespacio@db:5432/agentespacio_db")
+    db_url = os.environ.get("DATABASE_URL", "postgresql+psycopg2://agentespacio:agentespacio@db:5432/agentespacio_db")
     engine = create_engine(db_url)
     Session = sessionmaker(bind=engine)
     db = Session()

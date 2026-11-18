@@ -45,7 +45,7 @@ from services.permissions import (
 
 # Create a sync engine for WebSocket auth (since get_db is async generator)
 DATABASE_URL = os.environ.get('DATABASE_URL',
-    'postgresql://agentespacio:agentespacio@db:5432/agentespacio_db')
+    'postgresql+psycopg2://agentespacio:agentespacio@db:5432/agentespacio_db')
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

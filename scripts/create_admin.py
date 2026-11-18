@@ -26,7 +26,7 @@ from utils.password import hash_password
 # Database URL from environment or default
 DATABASE_URL = os.environ.get(
     'DATABASE_URL',
-    'postgresql://agentespacio:agentespacio@db:5432/agentespacio_db'
+    'postgresql+psycopg2://agentespacio:agentespacio@db:5432/agentespacio_db'
 )
 
 

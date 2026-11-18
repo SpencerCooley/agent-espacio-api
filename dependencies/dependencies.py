@@ -28,7 +28,7 @@ from services.permissions import AuthContext, Scope, resolve_scope
 # ============================================================================
 
 DATABASE_URL = os.environ.get(
-    'DATABASE_URL', 'postgresql://agentespacio:agentespacio@db:5432/agentespacio_db'
+    'DATABASE_URL', 'postgresql+psycopg2://agentespacio:agentespacio@db:5432/agentespacio_db'
 )
 _engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)

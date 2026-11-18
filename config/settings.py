@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # Database
-    database_url: str = "postgresql://agentespacio:agentespacio@db:5432/agentespacio_db"
+    database_url: str = "postgresql+psycopg2://agentespacio:agentespacio@db:5432/agentespacio_db"
     postgres_user: str = "agentespacio"
     postgres_password: str = "agentespacio"
     postgres_db: str = "agentespacio_db"

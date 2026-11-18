@@ -32,5 +32,8 @@ pyrender>=0.1.45
 trimesh>=4.0.0
 opencv-python-headless>=4.8.0.76
 
+# Task Queue transport dependency (kombu redis requires packaging)
+packaging>=24.0
+
 # Development
 watchdog>=4.0.0

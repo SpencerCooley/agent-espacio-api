@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import ai_instructions, health, auth, users, api_keys, ssh_keys, folders, assets, artifacts, public, settings, themes, ws, feed, repos, git_http, profiles
+from routers import ai_instructions, health, auth, users, api_keys, ssh_keys, folders, assets, artifacts, public, settings, themes, ws, feed, repos, git_http, profiles, system
 from routers.repos import _internal_router
 from services import events
 import routers.ws as ws_router
@@ -45,6 +45,7 @@ app.include_router(api_keys.router)
 app.include_router(folders.router)
 app.include_router(assets.router)
 app.include_router(artifacts.router)
+app.include_router(system.router)
 app.include_router(public.router)
 app.include_router(settings.router)
 app.include_router(themes.router)
@@ -66,7 +67,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models.artifact import Artifact
 
-_db_url = os.environ.get("DATABASE_URL", "postgresql://agentespacio:agentespacio@db:5432/agentespacio_db")
+_db_url = os.environ.get("DATABASE_URL", "postgresql+psycopg2://agentespacio:agentespacio@db:5432/agentespacio_db")
 _sync_engine = create_engine(_db_url, pool_pre_ping=True)
 _SyncSession = sessionmaker(bind=_sync_engine)
 

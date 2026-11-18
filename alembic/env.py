@@ -36,7 +36,7 @@ from models.repo_ssh_key import RepoSshKey  # noqa: F401
 config = context.config
 
 # Set database URL from environment
-config.set_main_option('sqlalchemy.url', os.environ.get('DATABASE_URL', 'postgresql://agentespacio:agentespacio@db:5432/agentespacio_db'))
+config.set_main_option('sqlalchemy.url', os.environ.get('DATABASE_URL', 'postgresql+psycopg2://agentespacio:agentespacio@db:5432/agentespacio_db'))
 
 # Interpret the config file for Python logging
 if config.config_file_name is not None:

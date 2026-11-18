@@ -3,8 +3,9 @@ services:
     image: redis:7-alpine
     container_name: agentespacio_redis
     command: redis-server --save 60 10 --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - agentespacio_redis_data:/data
     networks:
@@ -60,7 +61,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-agentespacio}:${POSTGRES_PASSWORD:-agentespacio}@db:5432/${POSTGRES_DB:-agentespacio_db}
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-agentespacio}:${POSTGRES_PASSWORD:-agentespacio}@db:5432/${POSTGRES_DB:-agentespacio_db}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CELERY_BROKER_URL=redis://redis:6379/0
@@ -100,7 +101,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-agentespacio}:${POSTGRES_PASSWORD:-agentespacio}@db:5432/${POSTGRES_DB:-agentespacio_db}
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-agentespacio}:${POSTGRES_PASSWORD:-agentespacio}@db:5432/${POSTGRES_DB:-agentespacio_db}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CELERY_BROKER_URL=redis://redis:6379/0
